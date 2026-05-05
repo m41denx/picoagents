@@ -96,6 +96,7 @@ Environment:
     const summary = await runTuiSession(goal, projectRoot, workspaceRoot, {
       oneshot: args.oneshot,
     });
+    if (summary === null) return;
     console.log("\n--- Final summary ---\n");
     console.log(summary);
     return;

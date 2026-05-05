@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import type { Plan } from "@/core/agents/planner.ts";
-import { runPicoagentSession } from "@/core/session.ts";
+import { PlanRejectedError, runPicoagentSession } from "@/core/session.ts";
 import {
   RunDashboard,
   formatDurationSec,
@@ -62,6 +62,7 @@ export function SessionApp({
   workspaceRoot,
   oneshot,
   onFinished,
+  onAborted,
   onError,
 }: {
   goal: string;
@@ -69,6 +70,8 @@ export function SessionApp({
   workspaceRoot: string;
   oneshot: boolean;
   onFinished: (summary: string) => void;
+  /** Plan declined — exit without treating as an error */
+  onAborted?: () => void;
   onError: (err: unknown) => void;
 }) {
   const { exit } = useApp();
@@ -206,6 +209,11 @@ export function SessionApp({
         }, 120);
       } catch (e) {
         if (cancelled) return;
+        if (e instanceof PlanRejectedError) {
+          onAborted?.();
+          exit();
+          return;
+        }
         if (orchestratorEverStarted.current) {
           setOrchestratorEndMs(Date.now());
         }
@@ -286,9 +294,9 @@ export async function runTuiSession(
   projectRoot: string,
   workspaceRoot: string,
   opts?: { oneshot?: boolean },
-): Promise<string> {
+): Promise<string | null> {
   const { render } = await import("ink");
-  return await new Promise<string>((resolve, reject) => {
+  return await new Promise<string | null>((resolve, reject) => {
     const { waitUntilExit } = render(
       <SessionApp
         goal={goal}
@@ -296,6 +304,7 @@ export async function runTuiSession(
         workspaceRoot={workspaceRoot}
         oneshot={opts?.oneshot ?? false}
         onFinished={(s) => resolve(s)}
+        onAborted={() => resolve(null)}
         onError={(e) => reject(e)}
       />,
     );

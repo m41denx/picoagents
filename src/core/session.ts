@@ -19,6 +19,14 @@ export type PicoagentSessionCallbacks = OrchestratorCallbacks & {
 
 export type { OrchestratorCallbacks };
 
+/** Thrown when the user declines the plan (e.g. TUI plan review). Not a fatal harness error. */
+export class PlanRejectedError extends Error {
+  override readonly name = "PlanRejectedError";
+  constructor(message = "Plan was not approved.") {
+    super(message);
+  }
+}
+
 export type RunPicoagentSessionOptions = {
   projectRoot: string;
   /** Workspace files root — defaults to projectRoot */
@@ -74,7 +82,7 @@ export async function runPicoagentSession(
     approved = await opts.callbacks.onPlanReady(plan);
   }
   if (!approved) {
-    throw new Error("Plan was not approved.");
+    throw new PlanRejectedError();
   }
 
   opts.callbacks?.onSessionLog?.("Running orchestrator…");
