@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { spinnerAt } from "./spinner.ts";
+import { spinnerAt } from "@/tui/spinner.ts";
 
 export type AgentUiRow = {
   runId: string;
@@ -39,9 +39,32 @@ function oneLine(s: string, max = 64): string {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-function formatDurationSec(ms: number): string {
+export function formatDurationSec(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "0.0s";
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Timers for planning / orchestrator meta rows (gray chip like subagents). */
+export type MetaPhaseTimer = {
+  startMs: number | null;
+  endMs: number | null;
+};
+
+function metaTimerChip(opts: {
+  skipped?: boolean;
+  startMs: number | null;
+  endMs: number | null;
+  /** Elapsed while phase in progress */
+  live: boolean;
+}): string {
+  if (opts.skipped) return "0.0s";
+  if (opts.startMs != null && opts.endMs != null) {
+    return formatDurationSec(opts.endMs - opts.startMs);
+  }
+  if (opts.live && opts.startMs != null) {
+    return formatDurationSec(Date.now() - opts.startMs);
+  }
+  return "—";
 }
 
 /** Elapsed (running) or final duration (finished), for header `• 38.3s`. */
@@ -60,6 +83,8 @@ export function RunDashboard({
   tick,
   planningSkipped,
   planReady,
+  planningTimer,
+  orchestratorTimer,
   orchestrator,
   agents,
   finalSummary,
@@ -68,12 +93,34 @@ export function RunDashboard({
   tick: number;
   planningSkipped: boolean;
   planReady: boolean;
+  planningTimer: MetaPhaseTimer;
+  orchestratorTimer: MetaPhaseTimer;
   orchestrator: OrchestratorUiState;
   agents: AgentUiRow[];
   finalSummary?: string;
 }) {
   const spin = spinnerAt(tick);
   const dense = agents.length > 4;
+
+  const planChip = metaTimerChip({
+    skipped: planningSkipped,
+    startMs: planningTimer.startMs,
+    endMs: planningTimer.endMs,
+    live: false,
+  });
+
+  const orchLive =
+    orchestrator.running &&
+    !orchestrator.finished &&
+    orchestratorTimer.startMs != null &&
+    orchestratorTimer.endMs == null;
+
+  const orchChip = metaTimerChip({
+    skipped: false,
+    startMs: orchestratorTimer.startMs,
+    endMs: orchestratorTimer.endMs,
+    live: orchLive,
+  });
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
@@ -83,67 +130,81 @@ export function RunDashboard({
       </Box>
 
       {!dense ? (
-        <Box flexDirection="row" marginBottom={1} flexWrap="wrap">
-          <Text color="green">✔ </Text>
-          <Text>
-            Planning
-            {planningSkipped ? (
-              <Text dimColor> (skipped)</Text>
-            ) : planReady ? null : (
-              <Text dimColor> …</Text>
+        <Box flexDirection="column" marginBottom={1}>
+          <Box flexDirection="row" flexWrap="wrap">
+            <Text color="green">✔ </Text>
+            <Text>
+              Planning
+              {planningSkipped ? (
+                <Text dimColor> (skipped)</Text>
+              ) : planReady ? null : (
+                <Text dimColor> …</Text>
+              )}
+            </Text>
+            <Text dimColor> • </Text>
+            <Text dimColor>{planChip}</Text>
+          </Box>
+          <Box flexDirection="row" flexWrap="wrap" marginTop={0}>
+            <Text
+              color={
+                orchestrator.finished
+                  ? "green"
+                  : orchestrator.multiStep
+                    ? "yellow"
+                    : orchestrator.running
+                      ? "cyan"
+                      : "gray"
+              }
+            >
+              {orchestrator.finished ? "✔ " : orchestrator.running ? `${spin} ` : "  "}
+            </Text>
+            <Text bold>Orchestrator</Text>
+            <Text dimColor> — </Text>
+            {orchestrator.finished ? (
+              <Text color="green">all agents complete</Text>
+            ) : orchestrator.multiStep ? (
+              <Text color="yellow">agents disagree, retrying…</Text>
+            ) : orchestrator.running ? (
+              <Text color="cyan">working…</Text>
+            ) : (
+              <Text dimColor>…</Text>
             )}
-          </Text>
-          <Text> </Text>
-          <Text
-            color={
-              orchestrator.finished
-                ? "green"
-                : orchestrator.multiStep
-                  ? "yellow"
-                  : orchestrator.running
-                    ? "cyan"
-                    : "gray"
-            }
-          >
-            {orchestrator.finished ? "✔ " : orchestrator.running ? `${spin} ` : "  "}
-          </Text>
-          <Text bold>Orchestrator</Text>
-          <Text dimColor> — </Text>
-          {orchestrator.finished ? (
-            <Text color="green">all agents complete</Text>
-          ) : orchestrator.multiStep ? (
-            <Text color="yellow">agents disagree, retrying…</Text>
-          ) : orchestrator.running ? (
-            <Text color="cyan">working…</Text>
-          ) : (
-            <Text dimColor>…</Text>
-          )}
+            <Text dimColor> • </Text>
+            <Text dimColor>{orchChip}</Text>
+          </Box>
         </Box>
       ) : (
-        <Box flexDirection="row" marginBottom={1} flexWrap="wrap">
-          <Text color="green">✔ Planning</Text>
-          {planningSkipped ? (
-            <Text dimColor> (skipped)</Text>
-          ) : null}
-          <Text> </Text>
-          <Text
-            color={
-              orchestrator.finished
-                ? "green"
-                : orchestrator.multiStep
-                  ? "yellow"
-                  : "cyan"
-            }
-          >
-            {orchestrator.finished ? "✔ " : `${spin} `}
-          </Text>
-          <Text bold>Orchestrator </Text>
-          <Text dimColor>{"─".repeat(28)}</Text>
-          {orchestrator.multiStep && orchestrator.running ? (
-            <Text color="yellow"> agents disagree, retrying…</Text>
-          ) : orchestrator.finished ? (
-            <Text color="green"> all complete</Text>
-          ) : null}
+        <Box flexDirection="column" marginBottom={1}>
+          <Box flexDirection="row" flexWrap="wrap">
+            <Text color="green">✔ Planning</Text>
+            {planningSkipped ? (
+              <Text dimColor> (skipped)</Text>
+            ) : null}
+            <Text dimColor> • </Text>
+            <Text dimColor>{planChip}</Text>
+          </Box>
+          <Box flexDirection="row" flexWrap="wrap" marginTop={0}>
+            <Text
+              color={
+                orchestrator.finished
+                  ? "green"
+                  : orchestrator.multiStep
+                    ? "yellow"
+                    : "cyan"
+              }
+            >
+              {orchestrator.finished ? "✔ " : `${spin} `}
+            </Text>
+            <Text bold>Orchestrator </Text>
+            <Text dimColor>{"─".repeat(20)}</Text>
+            {orchestrator.multiStep && orchestrator.running ? (
+              <Text color="yellow"> retrying…</Text>
+            ) : orchestrator.finished ? (
+              <Text color="green"> complete</Text>
+            ) : null}
+            <Text dimColor> • </Text>
+            <Text dimColor>{orchChip}</Text>
+          </Box>
         </Box>
       )}
 

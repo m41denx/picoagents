@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Box, Text, useApp, useInput } from "ink";
-import type { Plan } from "../core/agents/planner.ts";
-import { runPicoagentSession } from "../core/session.ts";
-import { RunDashboard, type AgentUiRow } from "./run-dashboard.tsx";
-import { spinnerAt } from "./spinner.ts";
+import type { Plan } from "@/core/agents/planner.ts";
+import { runPicoagentSession } from "@/core/session.ts";
+import {
+  RunDashboard,
+  formatDurationSec,
+  type AgentUiRow,
+} from "@/tui/run-dashboard.tsx";
+import { spinnerAt } from "@/tui/spinner.ts";
 
 function PlanScreen({
   plan,
+  planningDurationSec,
   onApprove,
   onReject,
 }: {
   plan: Plan;
+  planningDurationSec?: string | null;
   onApprove: () => void;
   onReject: () => void;
 }) {
@@ -22,9 +28,15 @@ function PlanScreen({
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box marginBottom={1}>
+      <Box marginBottom={1} flexDirection="row" flexWrap="wrap">
         <Text color="green">✔ </Text>
         <Text>Planning</Text>
+        {planningDurationSec ? (
+          <>
+            <Text dimColor> • </Text>
+            <Text dimColor>{planningDurationSec}</Text>
+          </>
+        ) : null}
       </Box>
       <Text bold color="cyan">
         Review plan — y approve · n reject · q quit
@@ -73,9 +85,20 @@ export function SessionApp({
     multiStep: false,
     finished: false,
   });
+  const [planningStartMs] = useState<number | null>(() =>
+    oneshot ? null : Date.now(),
+  );
+  const [planningEndMs, setPlanningEndMs] = useState<number | null>(null);
+  const [orchestratorStartMs, setOrchestratorStartMs] = useState<number | null>(
+    null,
+  );
+  const [orchestratorEndMs, setOrchestratorEndMs] = useState<number | null>(
+    null,
+  );
   const approveRef = useRef<((ok: boolean) => void) | null>(null);
   const displayCounter = useRef(0);
   const agentByRun = useRef(new Map<string, number>());
+  const orchestratorEverStarted = useRef(false);
   const onFinishedRef = useRef(onFinished);
   const onErrorRef = useRef(onError);
   onFinishedRef.current = onFinished;
@@ -102,6 +125,7 @@ export function SessionApp({
           callbacks: {
             onSessionLog: () => {},
             onPlanReady: async (p) => {
+              setPlanningEndMs(Date.now());
               setPlan(p);
               setPlanReady(true);
               setPhase("plan");
@@ -111,6 +135,8 @@ export function SessionApp({
               });
             },
             onOrchestratorStart: () => {
+              orchestratorEverStarted.current = true;
+              setOrchestratorStartMs(Date.now());
               setPhase("run");
               setOrch((o) => ({ ...o, running: true, finished: false }));
             },
@@ -171,6 +197,7 @@ export function SessionApp({
         });
         if (cancelled) return;
         setSummary(result.orchestratorSummary);
+        setOrchestratorEndMs(Date.now());
         setOrch({ running: false, multiStep: false, finished: true });
         setTimeout(() => {
           if (cancelled) return;
@@ -179,6 +206,9 @@ export function SessionApp({
         }, 120);
       } catch (e) {
         if (cancelled) return;
+        if (orchestratorEverStarted.current) {
+          setOrchestratorEndMs(Date.now());
+        }
         onErrorRef.current(e);
         exit();
       }
@@ -188,11 +218,24 @@ export function SessionApp({
     };
   }, [goal, projectRoot, workspaceRoot, oneshot, exit]);
 
+  const planReviewDuration =
+    planningStartMs != null && planningEndMs != null
+      ? formatDurationSec(planningEndMs - planningStartMs)
+      : null;
+
   if (phase === "loading" && !oneshot) {
     return (
-      <Box padding={1}>
+      <Box padding={1} flexDirection="row" flexWrap="wrap">
         <Text color="cyan">{spinnerAt(tick)} </Text>
         <Text>Planning…</Text>
+        {planningStartMs != null && planningEndMs == null ? (
+          <>
+            <Text dimColor> • </Text>
+            <Text dimColor>
+              {formatDurationSec(Date.now() - planningStartMs)}
+            </Text>
+          </>
+        ) : null}
       </Box>
     );
   }
@@ -201,6 +244,7 @@ export function SessionApp({
     return (
       <PlanScreen
         plan={plan}
+        planningDurationSec={planReviewDuration}
         onApprove={() => {
           setPhase("run");
           approveRef.current?.(true);
@@ -221,6 +265,14 @@ export function SessionApp({
         tick={tick}
         planningSkipped={oneshot}
         planReady={planReady}
+        planningTimer={{
+          startMs: planningStartMs,
+          endMs: planningEndMs,
+        }}
+        orchestratorTimer={{
+          startMs: orchestratorStartMs,
+          endMs: orchestratorEndMs,
+        }}
         orchestrator={orch}
         agents={agents}
         finalSummary={orch.finished ? summary : undefined}
