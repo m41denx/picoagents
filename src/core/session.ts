@@ -74,7 +74,7 @@ async function ensurePicoagentBootstrap(
   await mkdir(dir, { recursive: true });
 
   const gitignorePath = join(dir, ".gitignore");
-  const requiredIgnore = ["sessions", "node_modules"];
+  const requiredIgnore = ["sessions", "node_modules", "bun.lock"];
   let gitignoreContent = "";
   try {
     gitignoreContent = await readFile(gitignorePath, "utf8");

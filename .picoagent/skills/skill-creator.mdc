@@ -1,0 +1,59 @@
+---
+description: Creates or updates .picoagent skills with valid frontmatter and practical guidance.
+alwaysApply: true
+---
+
+# Skill Creator
+
+Use this skill when asked to create, update, or review skills in `.picoagent/skills/*.mdc`.
+
+## Objective
+
+Produce skills that are actionable for subagents, scoped to a clear domain, and safe to run repeatedly.
+
+## Required output shape
+
+1. Create/edit a file at `.picoagent/skills/<name>.mdc` (kebab-case filename).
+2. Include YAML frontmatter with:
+   - `description`: short, concrete summary
+   - `alwaysApply`: `true` or `false`
+3. Put guidance in markdown body after frontmatter.
+
+## Authoring rules
+
+- Keep instructions concrete and testable; avoid vague advice.
+- Include when-to-use signals and success criteria.
+- Prefer concise checklists over long prose.
+- Mention tool names/paths exactly when relevant.
+- Do not include secrets or environment-specific credentials.
+
+## Quality checklist
+
+- Frontmatter parses correctly.
+- `description` is specific enough for skill menu selection.
+- Body explains constraints and expected output format.
+- Guidance aligns with project conventions from `README.md`.
+
+## Example
+
+```md
+---
+description: Helps implement API handlers with stable error responses.
+alwaysApply: false
+---
+
+# API Handler Conventions
+
+Use when creating or updating server endpoints.
+
+## Requirements
+
+1. Validate request inputs at the boundary.
+2. Return `{ error: string, code?: string }` for failures.
+3. Use explicit timeout for outbound calls.
+
+## Done criteria
+
+- Handler has clear success and error shapes.
+- Invalid input path is tested or documented.
+```

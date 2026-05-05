@@ -1,0 +1,71 @@
+---
+description: Creates custom SubAgent files under .picoagent/agents with correct exports and tool wiring.
+alwaysApply: true
+---
+
+# Agents Creator
+
+Use this skill when implementing custom agents in `.picoagent/agents/*.ts`.
+
+## Objective
+
+Create production-usable `SubAgent` definitions that the loader can discover and register.
+
+## Required output shape
+
+1. Add/update `.picoagent/agents/<agent-id>.ts`.
+2. Export a `SubAgent` as either:
+   - `export default agent`, or
+   - `export const subagent = agent`
+3. Set clear metadata:
+   - `id` (stable, kebab-case)
+   - `name`
+   - `description`
+
+## Implementation rules
+
+- Import from package root:
+  - `import { SubAgent, tool } from "picoagents";`
+- Treat `.picoagent/package.json` as the dependency source for agent code:
+  - Add agent-specific dependencies there (not necessarily in project root).
+  - Do not overwrite existing `.picoagent/package.json` fields unrelated to the requested change.
+  - If dependency is missing, add it and run install in `.picoagent`.
+- Use `.withSystemPrompt(...)` for role behavior.
+- Add tools via `.withTool(name, toolDef)` only when needed.
+- Use `.withDefaultTools()` if the agent should access workspace read/search tools.
+- Use `.withSkill("name.mdc")` for opt-in skills.
+- Keep default behavior deterministic where possible.
+
+## Validation checklist
+
+- File is under `.picoagent/agents/` (not helpers/util files).
+- Agent id is unique and not `generalist`.
+- Tool schemas are explicit and narrow.
+- System prompt aligns with user intent and avoids role confusion.
+- Exports are valid for loader discovery.
+- Required imports resolve from `.picoagent/node_modules` after install.
+
+## Example
+
+```ts
+import { SubAgent, tool } from "picoagents";
+import { z } from "zod";
+
+const calc = tool({
+  description: "Adds two integers and returns the sum",
+  inputSchema: z.object({ a: z.number().int(), b: z.number().int() }),
+  execute: async ({ a, b }) => ({ sum: a + b }),
+});
+
+const mathAgent = new SubAgent({
+  id: "math-helper",
+  name: "Math Helper",
+  description: "Performs small deterministic arithmetic tasks",
+})
+  .withSystemPrompt(
+    "You are a math specialist. Be concise, show final result first.",
+  )
+  .withTool("add", calc);
+
+export default mathAgent;
+```
