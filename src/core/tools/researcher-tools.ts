@@ -1,9 +1,7 @@
-import axios from "axios";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
 const SERPAPI_BASE = "https://serpapi.com/search.json";
-const MAX_PAGE_BYTES = 512 * 1024;
 
 export type ResearcherToolOptions = {
   /** Override default process.env.SERPAPI_API_KEY */
@@ -31,26 +29,32 @@ export function createResearcherTools(opts?: ResearcherToolOptions): Record<stri
           "Missing SERPAPI_API_KEY — set env or pass serpApiKey when creating tools.",
         );
       }
-      const res = await axios.get<Record<string, unknown>>(SERPAPI_BASE, {
-        params: {
-          engine: "duckduckgo",
-          q: query,
-          kl: kl ?? "us-en",
-          api_key: apiKey.trim(),
-        },
-        timeout: 30_000,
-        validateStatus: () => true,
+      const params = new URLSearchParams({
+        engine: "duckduckgo",
+        q: query,
+        kl: kl ?? "us-en",
+        api_key: apiKey.trim(),
       });
-      const data = res.data;
-      if (res.status < 200 || res.status >= 300) {
+      let res: Response;
+      try {
+        res = await fetch(`${SERPAPI_BASE}?${params}`, {
+          signal: AbortSignal.timeout(30_000),
+        });
+      } catch (e) {
+        return { ok: false, error: String(e) };
+      }
+      let data: Record<string, unknown>;
+      try {
+        data = (await res.json()) as Record<string, unknown>;
+      } catch {
+        return { ok: false, error: "Empty or invalid JSON response" };
+      }
+      if (!res.ok) {
         const err =
-          data && typeof data === "object" && "error" in data
-            ? String((data as { error?: unknown }).error)
+          data && "error" in data
+            ? String(data["error"])
             : `HTTP ${res.status}`;
         return { ok: false, error: err };
-      }
-      if (typeof data !== "object" || data === null) {
-        return { ok: false, error: "Empty or invalid JSON response" };
       }
       const organic = Array.isArray(data["organic_results"])
         ? (data["organic_results"] as unknown[])
@@ -86,23 +90,23 @@ export function createResearcherTools(opts?: ResearcherToolOptions): Record<stri
       if (u.protocol !== "http:" && u.protocol !== "https:") {
         throw new Error("Only http/https URLs are allowed");
       }
-      const res = await axios.get<string>(url, {
-        responseType: "text",
-        timeout: 25_000,
-        maxContentLength: MAX_PAGE_BYTES,
-        maxBodyLength: MAX_PAGE_BYTES,
-        headers: {
-          "User-Agent":
-            "picoagents-researcher/1.0 (compatible; +https://github.com/m41denx/picoagents)",
-          Accept: "text/html,text/plain;q=0.9,*/*;q=0.8",
-        },
-        validateStatus: () => true,
-      });
-      const text =
-        typeof res.data === "string" ? res.data : String(res.data ?? "");
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          signal: AbortSignal.timeout(25_000),
+          headers: {
+            "User-Agent":
+              "picoagents-researcher/1.0 (compatible; +https://github.com/m41denx/picoagents)",
+            Accept: "text/html,text/plain;q=0.9,*/*;q=0.8",
+          },
+        });
+      } catch (e) {
+        return { ok: false, status: 0, url, content: String(e), truncated: false };
+      }
+      const text = await res.text();
       const truncated = text.length > 80_000;
       return {
-        ok: res.status >= 200 && res.status < 400,
+        ok: res.ok,
         status: res.status,
         url,
         content: truncated ? `${text.slice(0, 80_000)}…` : text,

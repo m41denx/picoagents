@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { resolve } from "path";
 
 export type CliArgs = {
   projectRoot: string;
@@ -64,8 +64,6 @@ Flags:
   --oneshot   Skip planner; single-task plan and go straight to orchestrator
   --verbose   Full step traces on stderr ([picoagents:…]); TUI shows untrimmed output
   --infinite  Loop iterations until Ctrl+C (1st graceful, 2nd force)
-  --enable-developer-agent  Enable bundled built-in "developer" agent
-  --enable-research-agent   Enable bundled built-in "researcher" agent
   --enable-developer-agent  Enable bundled built-in "developer" agent
   --enable-research-agent   Enable bundled built-in "researcher" agent
 

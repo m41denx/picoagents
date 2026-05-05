@@ -1,6 +1,5 @@
-import { basename, extname, join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { readdir } from "node:fs/promises";
+import { basename, extname, join } from "path";
+import { readdir } from "fs/promises";
 import { SubAgent } from "@/subagent.ts";
 
 export type AgentRegistry = {
@@ -44,7 +43,7 @@ export async function loadCustomAgents(projectRoot: string): Promise<Map<string,
         `Reserved agent id "generalist": rename ${file} or remove — built-in generalist is always registered.`,
       );
     }
-    const href = pathToFileURL(file).href;
+    const href = `file://${file}`;
     const mod = (await import(href)) as {
       default?: unknown;
       subagent?: unknown;

@@ -1,8 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { promisify } from "node:util";
+import { mkdir } from "fs/promises";
+import { join } from "path";
 import { getLanguageModel } from "@/core/model/provider.ts";
 import { getModelId } from "@/core/config.ts";
 import { loadSkills } from "@/core/registry/load-skills.ts";
@@ -67,10 +64,20 @@ async function writeSessionArtifact(
   payload: unknown,
 ): Promise<void> {
   await mkdir(sessionDir, { recursive: true });
-  await writeFile(join(sessionDir, name), JSON.stringify(payload, null, 2), "utf8");
+  await Bun.write(join(sessionDir, name), JSON.stringify(payload, null, 2));
 }
 
-const pexecFile = promisify(execFile);
+async function detectPicoagentsPackagePath(): Promise<string | null> {
+  try {
+    const candidateRoot = join(import.meta.dir, "../..");
+    const pkg = Bun.file(join(candidateRoot, "package.json"));
+    if (!await pkg.exists()) return null;
+    const data = JSON.parse(await pkg.text()) as { name?: string };
+    return data.name === "picoagents" ? candidateRoot : null;
+  } catch {
+    return null;
+  }
+}
 
 async function ensurePicoagentBootstrap(
   projectRoot: string,
@@ -82,10 +89,9 @@ async function ensurePicoagentBootstrap(
   const gitignorePath = join(dir, ".gitignore");
   const requiredIgnore = ["sessions", "node_modules", "bun.lock"];
   let gitignoreContent = "";
-  try {
-    gitignoreContent = await readFile(gitignorePath, "utf8");
-  } catch {
-    // create below
+  const gitignoreFile = Bun.file(gitignorePath);
+  if (await gitignoreFile.exists()) {
+    gitignoreContent = await gitignoreFile.text();
   }
   const existing = new Set(
     gitignoreContent
@@ -99,29 +105,26 @@ async function ensurePicoagentBootstrap(
       (gitignoreContent.trimEnd() ? `${gitignoreContent.trimEnd()}\n` : "") +
       missing.join("\n") +
       "\n";
-    await writeFile(gitignorePath, next, "utf8");
+    await Bun.write(gitignorePath, next);
   }
 
   const pkgPath = join(dir, "package.json");
-  try {
-    await readFile(pkgPath, "utf8");
-  } catch {
+  if (!await Bun.file(pkgPath).exists()) {
+    const picoagentsRoot = await detectPicoagentsPackagePath();
     const pkg = {
       name: "picoagent-local-agents",
       private: true,
       type: "module",
       dependencies: {
-        picoagents: "latest",
+        picoagents: picoagentsRoot ? `file:${picoagentsRoot}` : "latest",
       },
     };
-    await writeFile(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+    await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
   }
 
   onLog?.("Bootstrapping .picoagent deps (bun install) …");
-  await pexecFile("bun", ["install"], {
-    cwd: dir,
-    maxBuffer: 4 * 1024 * 1024,
-  });
+  const proc = Bun.spawn(["bun", "install"], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+  await proc.exited;
 }
 
 function mergeSessionCallbacks(
@@ -167,7 +170,7 @@ export async function runPicoagentSession(
   const projectRoot = opts.projectRoot;
   const workspaceRoot = opts.workspaceRoot ?? projectRoot;
   const verbose = resolveVerbose(opts.verbose);
-  const sessionId = randomUUID();
+  const sessionId = crypto.randomUUID();
   const sessionDir = join(projectRoot, ".picoagent", "sessions", sessionId);
   opts.callbacks?.onSessionLog?.(`Session: ${sessionId}`);
   await ensurePicoagentBootstrap(projectRoot, opts.callbacks?.onSessionLog);

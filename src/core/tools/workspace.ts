@@ -1,7 +1,5 @@
-import { exec } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
-import { promisify } from "node:util";
+import { readdir, stat } from "fs/promises";
+import { join, relative } from "path";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import { allowShell } from "@/core/config.ts";
@@ -81,7 +79,7 @@ export function createWorkspaceTools(workspaceRoot: string) {
       if (!s.isFile()) throw new Error("Not a file");
       const max = 512 * 1024;
       if (s.size > max) throw new Error(`File too large (${s.size} bytes, max ${max})`);
-      return { path: toPosix(path), content: await readFile(abs, "utf8") };
+      return { path: toPosix(path), content: await Bun.file(abs).text() };
     },
   });
 
@@ -149,7 +147,7 @@ export function createWorkspaceTools(workspaceRoot: string) {
         if (fileGlob && !matchGlob(rel, fileGlob)) continue;
         let content: string;
         try {
-          content = await readFile(abs, "utf8");
+          content = await Bun.file(abs).text();
         } catch {
           continue;
         }
@@ -185,11 +183,14 @@ export function createWorkspaceTools(workspaceRoot: string) {
           .describe("Command with args, e.g. `bun test` (no newlines)"),
       }),
       execute: async ({ command }) => {
-        const pexec = promisify(exec);
-        const { stdout, stderr } = await pexec(command, {
+        const proc = Bun.spawn(["sh", "-c", command], {
           cwd: workspaceRoot,
-          maxBuffer: 2 * 1024 * 1024,
+          stdout: "pipe",
+          stderr: "pipe",
         });
+        await proc.exited;
+        const stdout = await new Response(proc.stdout).text();
+        const stderr = await new Response(proc.stderr).text();
         return { stdout, stderr };
       },
     });

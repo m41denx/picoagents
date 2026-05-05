@@ -1,8 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir } from "fs/promises";
+import { dirname } from "path";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import { safeResolveUnder, toPosix } from "@/core/paths.ts";
+import { safeResolveUnder, toPosix } from "../paths.ts";
 
 const MAX_WRITE_BYTES = 2 * 1024 * 1024;
 
@@ -35,18 +35,18 @@ export function createDeveloperWorkspaceTools(workspaceRoot: string): Record<str
         .describe("If true, mkdir -p parent dirs before write (default true)"),
     }),
     execute: async ({ path, content, create_parent_dirs = true }) => {
-      const buf = Buffer.from(content, "utf8");
-      if (buf.length > MAX_WRITE_BYTES) {
+      const bytes = new TextEncoder().encode(content).byteLength;
+      if (bytes > MAX_WRITE_BYTES) {
         throw new Error(
-          `Content too large (${buf.length} bytes, max ${MAX_WRITE_BYTES})`,
+          `Content too large (${bytes} bytes, max ${MAX_WRITE_BYTES})`,
         );
       }
       const abs = safeResolveUnder(workspaceRoot, path);
       if (create_parent_dirs) {
         await mkdir(dirname(abs), { recursive: true });
       }
-      await writeFile(abs, content, "utf8");
-      return { ok: true, path: toPosix(path), bytesWritten: buf.length };
+      await Bun.write(abs, content);
+      return { ok: true, path: toPosix(path), bytesWritten: bytes };
     },
   });
 

@@ -1,7 +1,6 @@
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir } from "fs/promises";
+import { join } from "path";
 import { parse as parseYaml } from "yaml";
-import { readFile } from "node:fs/promises";
 import type { SubAgent } from "@/subagent.ts";
 import type { SkillRecord } from "@/core/registry/skill-types.ts";
 
@@ -97,7 +96,7 @@ export async function loadSkills(projectRoot: string): Promise<SkillRegistry> {
     if (!name.endsWith(".mdc")) continue;
     const skillName = name.slice(0, -".mdc".length);
     const filePath = join(dir, name);
-    const content = await readFile(filePath, "utf8");
+    const content = await Bun.file(filePath).text();
     records.push(parseMdcFile(content, filePath, skillName));
   }
   return new SkillRegistry(records);

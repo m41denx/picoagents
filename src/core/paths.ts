@@ -1,4 +1,4 @@
-import { relative, resolve } from "node:path";
+import { relative, resolve } from "path";
 
 export function safeResolveUnder(root: string, userPath: string): string {
   const absRoot = resolve(root);

@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir } from "fs/promises";
+import { join } from "path";
 
 const DEFAULT = `# AGENT.md — picoagent session memory
 
@@ -16,11 +16,9 @@ const DEFAULT = `# AGENT.md — picoagent session memory
 
 export async function readAgentMd(projectRoot: string): Promise<string> {
   const p = join(projectRoot, ".picoagent", "AGENT.md");
-  try {
-    return await readFile(p, "utf8");
-  } catch {
-    return DEFAULT;
-  }
+  const f = Bun.file(p);
+  if (await f.exists()) return f.text();
+  return DEFAULT;
 }
 
 export async function appendAgentMdSection(
@@ -32,12 +30,9 @@ export async function appendAgentMdSection(
   await mkdir(dir, { recursive: true });
   const p = join(dir, "AGENT.md");
   let cur = DEFAULT;
-  try {
-    cur = await readFile(p, "utf8");
-  } catch {
-    /* use default */
-  }
+  const f = Bun.file(p);
+  if (await f.exists()) cur = await f.text();
   const stamp = new Date().toISOString();
   const block = `\n\n### ${section} (${stamp})\n\n${body}\n`;
-  await writeFile(p, cur + block, "utf8");
+  await Bun.write(p, cur + block);
 }
