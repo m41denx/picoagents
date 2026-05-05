@@ -11,6 +11,8 @@ export type AgentUiRow = {
   perspective?: string;
   /** Short status line while running */
   latest: string;
+  /** Full subagent output when verbose mode is on */
+  fullOutput?: string;
   /** Final one-liner when done/error */
   resultLine?: string;
   /** Wall-clock start (ms) for this run */
@@ -86,8 +88,10 @@ export function RunDashboard({
   planningTimer,
   orchestratorTimer,
   orchestrator,
+  orchestratorActivity,
   agents,
   finalSummary,
+  verbose,
 }: {
   goal: string;
   tick: number;
@@ -96,8 +100,12 @@ export function RunDashboard({
   planningTimer: MetaPhaseTimer;
   orchestratorTimer: MetaPhaseTimer;
   orchestrator: OrchestratorUiState;
+  /** Last orchestrator model step: tools / snippet (live observability). */
+  orchestratorActivity?: string;
   agents: AgentUiRow[];
   finalSummary?: string;
+  /** Show full result text and agent bodies without aggressive trimming. */
+  verbose?: boolean;
 }) {
   const spin = spinnerAt(tick);
   const dense = agents.length > 4;
@@ -124,9 +132,16 @@ export function RunDashboard({
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
-      <Box marginBottom={1}>
-        <Text dimColor>Prompt: </Text>
-        <Text>{oneLine(goal, 72)}</Text>
+      <Box marginBottom={1} flexDirection="column">
+        <Box flexDirection="row" flexWrap="wrap">
+          <Text dimColor>Prompt: </Text>
+          <Text>{verbose ? goal : oneLine(goal, 72)}</Text>
+        </Box>
+        {verbose ? (
+          <Box marginTop={0}>
+            <Text dimColor>Verbose — full traces also on stderr</Text>
+          </Box>
+        ) : null}
       </Box>
 
       {!dense ? (
@@ -172,6 +187,16 @@ export function RunDashboard({
             <Text dimColor> • </Text>
             <Text dimColor>{orchChip}</Text>
           </Box>
+          {orchestratorActivity ? (
+            <Box flexDirection="row" flexWrap="wrap" marginTop={0}>
+              <Text dimColor>→ </Text>
+              <Text dimColor>
+                {verbose
+                  ? orchestratorActivity
+                  : oneLine(orchestratorActivity, 76)}
+              </Text>
+            </Box>
+          ) : null}
         </Box>
       ) : (
         <Box flexDirection="column" marginBottom={1}>
@@ -205,13 +230,23 @@ export function RunDashboard({
             <Text dimColor> • </Text>
             <Text dimColor>{orchChip}</Text>
           </Box>
+          {orchestratorActivity ? (
+            <Box flexDirection="row" flexWrap="wrap" marginTop={0}>
+              <Text dimColor>→ </Text>
+              <Text dimColor>
+                {verbose
+                  ? orchestratorActivity
+                  : oneLine(orchestratorActivity, 76)}
+              </Text>
+            </Box>
+          ) : null}
         </Box>
       )}
 
       {dense ? (
-        <DenseTable tick={tick} agents={agents} />
+        <DenseTable tick={tick} agents={agents} verbose={verbose} />
       ) : (
-        <BoxedAgents tick={tick} agents={agents} />
+        <BoxedAgents tick={tick} agents={agents} verbose={verbose} />
       )}
 
       {finalSummary ? (
@@ -219,7 +254,13 @@ export function RunDashboard({
           <Text color="green" bold>
             ✔ Result
           </Text>
-          <Text>{oneLine(finalSummary, 76)}</Text>
+          {verbose ? (
+            finalSummary.split("\n").map((line, i) => (
+              <Text key={i}>{line}</Text>
+            ))
+          ) : (
+            <Text>{oneLine(finalSummary, 76)}</Text>
+          )}
         </Box>
       ) : null}
     </Box>
@@ -229,9 +270,11 @@ export function RunDashboard({
 function BoxedAgents({
   tick,
   agents,
+  verbose,
 }: {
   tick: number;
   agents: AgentUiRow[];
+  verbose?: boolean;
 }) {
   const spin = spinnerAt(tick);
   return (
@@ -270,26 +313,58 @@ function BoxedAgents({
                 <Text dimColor>{sub}</Text>
               ) : null}
             </Box>
-            <Box paddingLeft={0}>
+            <Box paddingLeft={0} flexDirection="column">
               {a.status === "running" ? (
                 <Text>
                   <Text color="gray">→ </Text>
-                  <Text color="gray">{oneLine(a.latest, 68)}</Text>
+                  <Text color="gray">
+                    {verbose ? a.latest : oneLine(a.latest, 68)}
+                  </Text>
                 </Text>
               ) : a.status === "done" ? (
-                <Text>
-                  <Text color="green">✔ </Text>
-                  <Text color="gray">{oneLine(a.resultLine ?? a.latest, 68)}</Text>
-                </Text>
+                verbose && a.fullOutput ? (
+                  <Box flexDirection="column">
+                    <Text>
+                      <Text color="green">✔ </Text>
+                      <Text color="gray">(full output)</Text>
+                    </Text>
+                    {a.fullOutput.split("\n").map((line, i) => (
+                      <Text key={i} color="gray">
+                        {line}
+                      </Text>
+                    ))}
+                  </Box>
+                ) : (
+                  <Text>
+                    <Text color="green">✔ </Text>
+                    <Text color="gray">
+                      {oneLine(a.resultLine ?? a.latest, 68)}
+                    </Text>
+                  </Text>
+                )
+              ) : verbose && a.fullOutput ? (
+                <Box flexDirection="column">
+                  <Text>
+                    <Text color="red">✗ </Text>
+                    <Text color="red">(full output)</Text>
+                  </Text>
+                  {a.fullOutput.split("\n").map((line, i) => (
+                    <Text key={i} color="red">
+                      {line}
+                    </Text>
+                  ))}
+                </Box>
               ) : (
                 <Text>
                   <Text color="red">✗ </Text>
-                  <Text color="red">{oneLine(a.resultLine ?? a.latest, 68)}</Text>
+                  <Text color="red">
+                    {oneLine(a.resultLine ?? a.latest, 68)}
+                  </Text>
                 </Text>
               )}
             </Box>
             <Box marginTop={0}>
-              <Text dimColor>{oneLine(a.task, 68)}</Text>
+              <Text dimColor>{verbose ? a.task : oneLine(a.task, 68)}</Text>
             </Box>
           </Box>
         );
@@ -301,9 +376,11 @@ function BoxedAgents({
 function DenseTable({
   tick,
   agents,
+  verbose,
 }: {
   tick: number;
   agents: AgentUiRow[];
+  verbose?: boolean;
 }) {
   const spin = spinnerAt(tick);
   return (
@@ -317,8 +394,12 @@ function DenseTable({
         const stColor = st === "running" ? "cyan" : st === "done" ? "green" : "red";
         const latest =
           st === "running"
-            ? oneLine(a.latest, 22)
-            : oneLine(a.resultLine ?? a.latest, 22);
+            ? verbose
+              ? oneLine(a.latest, 44)
+              : oneLine(a.latest, 22)
+            : verbose && a.fullOutput
+              ? oneLine(a.fullOutput, 44)
+              : oneLine(a.resultLine ?? a.latest, 22);
         const typeCell =
           a.agentKey.length > 12 ? `${a.agentKey.slice(0, 11)}…` : a.agentKey;
         const typePadded = typeCell.padEnd(12, " ");

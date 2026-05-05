@@ -1,8 +1,11 @@
-import { generateText, Output, zodSchema } from "ai";
+import { generateText, stepCountIs, tool, zodSchema } from "ai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
+import type { ModelStepTrace } from "@/core/observability.ts";
+import { serializeModelStep } from "@/core/observability.ts";
 import type { AgentRegistry } from "@/core/registry/load-agents.ts";
 import type { SkillRegistry } from "@/core/registry/load-skills.ts";
+import { createWorkspaceTools } from "@/core/tools/workspace.ts";
 import type { SubAgent } from "@/subagent.ts";
 
 export const planTaskSchema = z.object({
@@ -27,6 +30,12 @@ export type Plan = z.infer<typeof planSchema>;
 export type RunPlannerOptions = {
   /** Rich harness context (subagents, skills, orchestrator behavior). Optional but strongly recommended. */
   briefing?: string;
+  /** Workspace root used by planner read/list/search tools. */
+  workspaceRoot?: string;
+  /** Max planner steps for tool loops. */
+  maxPlannerSteps?: number;
+  /** After each model step (structured output path may still emit reasoning). */
+  onPlannerStepTrace?: (trace: ModelStepTrace) => void;
 };
 
 /**
@@ -118,9 +127,16 @@ const PLANNER_SYSTEM = `You are the planning phase of **picoagents**, a harness 
 
 You receive a detailed **harness context** before the user goal: registered agents, skills, and how execution works. Use it — plans that ignore available agents/skills are wasteful.
 
-Produce a concise, actionable **structured plan** (phases with tasks). Use clear task ids (kebab-case). Use dependsOn when ordering matters; omit when tasks can run in parallel.
+You are an agentic planner with tools:
+- Use workspace tools (list_dir, glob_search, grep, read_file) to inspect files and infer intent before drafting.
+- Maintain draft state with read_plan, set_plan_title, upsert_plan_task, and remove_plan_task.
+- Always call finalize_plan when done; that is the source of truth.
 
-Important: emit the plan through the normal structured output path the client reads. Some OpenAI-compatible stacks leave assistant content empty if you write only to an internal reasoning stream — put the structured plan where the API returns it.
+Planning quality bar:
+- Capture the user's original intent and constraints verbatim where useful.
+- Include concrete file paths and implementation checks when requested.
+- Do not collapse nuanced requests into one vague task.
+- Use clear task ids (kebab-case). Use dependsOn only when sequencing is required.
 
 Task descriptions should reference relevant **agentKey** values from the harness context and, when useful, **skill** names or workspace paths.`;
 
@@ -152,25 +168,145 @@ export async function runPlanner(
   options?: RunPlannerOptions,
 ): Promise<Plan> {
   const briefing = options?.briefing?.trim();
+  const onPlannerStepTrace = options?.onPlannerStepTrace;
+  const workspaceRoot = options?.workspaceRoot;
+  const maxPlannerSteps = options?.maxPlannerSteps ?? 24;
   const prompt =
     briefing && briefing.length > 0
       ? `${briefing}\n\n---\n\n## User goal / request\n\n${goal}`
       : `Goal / request:\n${goal}`;
 
-  const result = await generateText({
-    model,
-    system: PLANNER_SYSTEM,
-    prompt,
-    output: Output.object({
-      schema: zodSchema(planSchema),
-      name: "Plan",
-      description: "Phased plan with tasks",
-    }),
+  const draft: Plan = {
+    title: "Draft plan",
+    phases: [{ name: "Main", tasks: [] }],
+  };
+  let finalized: Plan | null = null;
+
+  const read_plan = tool({
+    description: "Read the current draft plan JSON.",
+    inputSchema: z.object({}),
+    execute: async () => ({ plan: draft }),
   });
 
-  const out = result.output;
-  if (!out) {
-    throw new Error("Planner produced no structured output");
+  const set_plan_title = tool({
+    description: "Set or replace the plan title.",
+    inputSchema: z.object({ title: z.string() }),
+    execute: async ({ title }) => {
+      draft.title = title.trim() || draft.title;
+      return { ok: true, title: draft.title };
+    },
+  });
+
+  const upsert_plan_task = tool({
+    description:
+      "Create or update a task in a phase. Creates the phase when missing.",
+    inputSchema: z.object({
+      phase: z.string(),
+      id: z.string(),
+      title: z.string(),
+      description: z.string().optional(),
+      dependsOn: z.array(z.string()).optional(),
+    }),
+    execute: async ({ phase, id, title, description, dependsOn }) => {
+      const phaseName = phase.trim() || "Main";
+      let target = draft.phases.find((p) => p.name === phaseName);
+      if (!target) {
+        target = { name: phaseName, tasks: [] };
+        draft.phases.push(target);
+      }
+      const i = target.tasks.findIndex((t) => t.id === id);
+      const next = { id, title, description, dependsOn };
+      if (i >= 0) target.tasks[i] = next;
+      else target.tasks.push(next);
+      return { ok: true, phase: phaseName, task: next };
+    },
+  });
+
+  const remove_plan_task = tool({
+    description: "Remove a task from all phases by id.",
+    inputSchema: z.object({ id: z.string() }),
+    execute: async ({ id }) => {
+      let removed = 0;
+      for (const p of draft.phases) {
+        const before = p.tasks.length;
+        p.tasks = p.tasks.filter((t) => t.id !== id);
+        removed += before - p.tasks.length;
+      }
+      return { ok: true, removed };
+    },
+  });
+
+  const finalize_plan = tool({
+    description:
+      "Finalize and return the current plan. Must be called exactly once at the end.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const parsed = planSchema.safeParse(draft);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: parsed.error.issues.map((i) => i.message).join("; "),
+        };
+      }
+      if (!parsed.data.phases.some((p) => p.tasks.length > 0)) {
+        return { ok: false, error: "Plan must include at least one task." };
+      }
+      finalized = parsed.data;
+      return { ok: true, plan: parsed.data };
+    },
+  });
+
+  const tools = {
+    ...(workspaceRoot ? createWorkspaceTools(workspaceRoot) : {}),
+    read_plan,
+    set_plan_title,
+    upsert_plan_task,
+    remove_plan_task,
+    finalize_plan,
+  };
+
+  const plannerPassPrompts = [
+    prompt,
+    `${prompt}
+
+You stopped before finalization in a prior attempt. Continue from the current draft plan:
+${JSON.stringify(draft, null, 2)}
+
+Next actions:
+1) read_plan
+2) upsert_plan_task/remove_plan_task as needed
+3) finalize_plan`,
+    `${prompt}
+
+Final planner pass. You must finish now.
+Current draft plan:
+${JSON.stringify(draft, null, 2)}
+
+If the draft is already good, call finalize_plan immediately.
+If not, make minimal fixes with upsert_plan_task/remove_plan_task and then call finalize_plan.`,
+  ];
+
+  for (const passPrompt of plannerPassPrompts) {
+    if (finalized) break;
+    await generateText({
+      model,
+      system: PLANNER_SYSTEM,
+      prompt: passPrompt,
+      tools,
+      stopWhen: stepCountIs(maxPlannerSteps),
+      onStepFinish: (event) => {
+        onPlannerStepTrace?.(serializeModelStep(event));
+      },
+    });
+    if (!finalized) {
+      const parsed = planSchema.safeParse(draft);
+      if (parsed.success && parsed.data.phases.some((p) => p.tasks.length > 0)) {
+        finalized = parsed.data;
+      }
+    }
   }
-  return out as Plan;
+  if (!finalized) {
+    throw new Error("Planner did not finalize a valid plan");
+  }
+  return finalized;
 }

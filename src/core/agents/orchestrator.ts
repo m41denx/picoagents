@@ -9,6 +9,8 @@ import { getMaxParallel } from "@/core/config.ts";
 import { parallelMapSettled } from "@/core/parallel.ts";
 import { runSubagent } from "@/core/agents/run-subagent.ts";
 import type { Plan } from "@/core/agents/planner.ts";
+import type { ModelStepTrace } from "@/core/observability.ts";
+import { serializeModelStep } from "@/core/observability.ts";
 
 export type TaskRow = {
   id: string;
@@ -35,6 +37,13 @@ export type OrchestratorCallbacks = {
     agentKey: string,
     ok: boolean,
     summary: string,
+  ) => void;
+  /** Full step payload (text + tool calls/results) for observability */
+  onOrchestratorStepTrace?: (trace: ModelStepTrace) => void;
+  onSubagentStepTrace?: (
+    runId: string,
+    agentKey: string,
+    trace: ModelStepTrace,
   ) => void;
   onBatchCompleted?: (payload: unknown) => void;
 };
@@ -158,6 +167,8 @@ export function createOrchestratorTools(opts: {
               goldenExcerpt: golden.excerptForPrompt(),
               skillRegistry,
               workspaceRoot,
+              onStepTrace: (trace) =>
+                callbacks?.onSubagentStepTrace?.(runId, r.agentKey, trace),
             });
             callbacks?.onSubagentFinished?.(runId, r.agentKey, true, text);
             return {
@@ -295,6 +306,7 @@ Rules:
         finishReason: event.finishReason,
         hadToolCalls,
       });
+      opts.callbacks?.onOrchestratorStepTrace?.(serializeModelStep(event));
     },
   });
 

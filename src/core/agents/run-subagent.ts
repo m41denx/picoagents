@@ -4,6 +4,8 @@ import type { SubAgent } from "@/subagent.ts";
 import type { SkillRegistry } from "@/core/registry/load-skills.ts";
 import { createWorkspaceTools } from "@/core/tools/workspace.ts";
 import { createReadSkillTool } from "@/core/tools/read-skill-tool.ts";
+import type { ModelStepTrace } from "@/core/observability.ts";
+import { serializeModelStep } from "@/core/observability.ts";
 
 export type RunSubagentParams = {
   model: LanguageModel;
@@ -14,6 +16,8 @@ export type RunSubagentParams = {
   skillRegistry: SkillRegistry;
   workspaceRoot: string;
   maxSteps?: number;
+  /** Emitted after each model step (tools + text). */
+  onStepTrace?: (trace: ModelStepTrace) => void;
 };
 
 export async function runSubagent({
@@ -25,6 +29,7 @@ export async function runSubagent({
   skillRegistry,
   workspaceRoot,
   maxSteps = 14,
+  onStepTrace,
 }: RunSubagentParams): Promise<string> {
   const menu = skillRegistry.menuBlock(agent);
   const allowed = skillRegistry.visibleSkillNames(agent);
@@ -64,6 +69,9 @@ export async function runSubagent({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tools: mergedTools as any,
     stopWhen: stepCountIs(maxSteps),
+    onStepFinish: (event) => {
+      onStepTrace?.(serializeModelStep(event));
+    },
   });
 
   return result.text || "(no text)";

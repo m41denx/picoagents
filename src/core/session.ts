@@ -11,10 +11,13 @@ import {
   type Plan,
 } from "@/core/agents/planner.ts";
 import { runOrchestrator, type OrchestratorCallbacks } from "@/core/agents/orchestrator.ts";
+import type { ModelStepTrace } from "@/core/observability.ts";
+import { emitTraceLine, resolveVerbose } from "@/core/observability.ts";
 
 export type PicoagentSessionCallbacks = OrchestratorCallbacks & {
   onPlanReady?: (plan: Plan) => Promise<boolean>;
   onSessionLog?: (line: string) => void;
+  onPlannerStepTrace?: (trace: ModelStepTrace) => void;
 };
 
 export type { OrchestratorCallbacks };
@@ -36,6 +39,8 @@ export type RunPicoagentSessionOptions = {
   autoApprovePlan?: boolean;
   /** Skip planner LLM; use a single-task plan and go straight to orchestrator */
   skipPlanner?: boolean;
+  /** Rich traces on stderr + structured step callbacks (also env `PICOAGENT_VERBOSE=1`). */
+  verbose?: boolean;
   callbacks?: PicoagentSessionCallbacks;
 };
 
@@ -44,11 +49,49 @@ export type RunPicoagentSessionResult = {
   orchestratorSummary: string;
 };
 
+function mergeSessionCallbacks(
+  verbose: boolean,
+  user?: PicoagentSessionCallbacks,
+): PicoagentSessionCallbacks | undefined {
+  const needOrchTrace =
+    verbose || Boolean(user?.onOrchestratorStepTrace);
+  const needSubTrace = verbose || Boolean(user?.onSubagentStepTrace);
+  const needPlannerTrace =
+    verbose || Boolean(user?.onPlannerStepTrace);
+
+  if (!user && !verbose) return undefined;
+
+  const base = user ?? {};
+  const out: PicoagentSessionCallbacks = { ...base };
+
+  if (needPlannerTrace) {
+    out.onPlannerStepTrace = (t) => {
+      base.onPlannerStepTrace?.(t);
+      if (verbose) emitTraceLine("planner-step", t);
+    };
+  }
+  if (needOrchTrace) {
+    out.onOrchestratorStepTrace = (t) => {
+      base.onOrchestratorStepTrace?.(t);
+      if (verbose) emitTraceLine("orchestrator-step", t);
+    };
+  }
+  if (needSubTrace) {
+    out.onSubagentStepTrace = (rid, key, t) => {
+      base.onSubagentStepTrace?.(rid, key, t);
+      if (verbose) emitTraceLine(`subagent-step:${rid}:${key}`, t);
+    };
+  }
+
+  return out;
+}
+
 export async function runPicoagentSession(
   opts: RunPicoagentSessionOptions,
 ): Promise<RunPicoagentSessionResult> {
   const projectRoot = opts.projectRoot;
   const workspaceRoot = opts.workspaceRoot ?? projectRoot;
+  const verbose = resolveVerbose(opts.verbose);
 
   const skillRegistry = await loadSkills(projectRoot);
   const customAgents = await loadCustomAgents(projectRoot);
@@ -60,13 +103,16 @@ export async function runPicoagentSession(
   const orchestratorModel = getLanguageModel(getModelId("orchestrator"));
   const subagentModel = getLanguageModel(getModelId("subagent"));
 
+  const sessionCallbacks =
+    mergeSessionCallbacks(verbose, opts.callbacks) ?? opts.callbacks;
+
   let plan: Plan;
   if (opts.skipPlanner) {
-    opts.callbacks?.onSessionLog?.("Skipping planner (--oneshot).");
+    sessionCallbacks?.onSessionLog?.("Skipping planner (--oneshot).");
     plan = createOneshotPlan(opts.goal);
   } else {
     const plannerModel = getLanguageModel(getModelId("planner"));
-    opts.callbacks?.onSessionLog?.("Generating plan…");
+    sessionCallbacks?.onSessionLog?.("Generating plan…");
     const plannerBriefing = buildPlannerBriefing(
       agentRegistry,
       skillRegistry,
@@ -74,6 +120,8 @@ export async function runPicoagentSession(
     );
     plan = await runPlanner(plannerModel, opts.goal, {
       briefing: plannerBriefing,
+      workspaceRoot,
+      onPlannerStepTrace: sessionCallbacks?.onPlannerStepTrace,
     });
   }
 
@@ -85,7 +133,7 @@ export async function runPicoagentSession(
     throw new PlanRejectedError();
   }
 
-  opts.callbacks?.onSessionLog?.("Running orchestrator…");
+  sessionCallbacks?.onSessionLog?.("Running orchestrator…");
 
   const orchestratorSummary = await runOrchestrator({
     orchestratorModel,
@@ -97,9 +145,13 @@ export async function runPicoagentSession(
     agentRegistry,
     skillRegistry,
     golden,
-    callbacks: opts.callbacks,
+    callbacks: sessionCallbacks,
     skipPlanner: opts.skipPlanner,
   });
+
+  if (verbose) {
+    emitTraceLine("orchestrator-final", { text: orchestratorSummary });
+  }
 
   await golden.save();
 
