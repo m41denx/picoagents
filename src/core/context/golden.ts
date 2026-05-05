@@ -1,4 +1,3 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export type GoldenState = {
@@ -28,24 +27,19 @@ export function estimateTokens(text: string): number {
 
 export class GoldenStore {
   readonly dir: string;
+  readonly path: string;
   private state: GoldenState;
 
   private constructor(dir: string, state: GoldenState) {
     this.dir = dir;
+    this.path = join(dir, "golden.json");
     this.state = state;
   }
 
   static async load(projectRoot: string): Promise<GoldenStore> {
     const dir = join(projectRoot, ".picoagent");
-    await mkdir(dir, { recursive: true });
-    const path = join(dir, "golden.json");
-    try {
-      const raw = await readFile(path, "utf8");
-      const parsed = JSON.parse(raw) as GoldenState;
-      return new GoldenStore(dir, { ...DEFAULT_GOLDEN, ...parsed });
-    } catch {
-      return new GoldenStore(dir, { ...DEFAULT_GOLDEN });
-    }
+    // Session-only memory: do not persist golden context between runs.
+    return new GoldenStore(dir, { ...DEFAULT_GOLDEN });
   }
 
   get(): GoldenState {
@@ -74,8 +68,7 @@ export class GoldenStore {
   }
 
   async save(): Promise<void> {
-    const path = join(this.dir, "golden.json");
-    await writeFile(path, JSON.stringify(this.state, null, 2), "utf8");
+    // No-op by design: golden state lives only for this session run.
   }
 
   /**

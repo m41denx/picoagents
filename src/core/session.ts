@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { getLanguageModel } from "@/core/model/provider.ts";
 import { getModelId } from "@/core/config.ts";
 import { loadSkills } from "@/core/registry/load-skills.ts";
@@ -45,9 +48,19 @@ export type RunPicoagentSessionOptions = {
 };
 
 export type RunPicoagentSessionResult = {
+  sessionId: string;
   plan: Plan;
   orchestratorSummary: string;
 };
+
+async function writeSessionArtifact(
+  sessionDir: string,
+  name: string,
+  payload: unknown,
+): Promise<void> {
+  await mkdir(sessionDir, { recursive: true });
+  await writeFile(join(sessionDir, name), JSON.stringify(payload, null, 2), "utf8");
+}
 
 function mergeSessionCallbacks(
   verbose: boolean,
@@ -92,6 +105,9 @@ export async function runPicoagentSession(
   const projectRoot = opts.projectRoot;
   const workspaceRoot = opts.workspaceRoot ?? projectRoot;
   const verbose = resolveVerbose(opts.verbose);
+  const sessionId = randomUUID();
+  const sessionDir = join(projectRoot, ".picoagent", "sessions", sessionId);
+  opts.callbacks?.onSessionLog?.(`Session: ${sessionId}`);
 
   const skillRegistry = await loadSkills(projectRoot);
   const customAgents = await loadCustomAgents(projectRoot);
@@ -130,24 +146,32 @@ export async function runPicoagentSession(
     approved = await opts.callbacks.onPlanReady(plan);
   }
   if (!approved) {
+    await writeSessionArtifact(sessionDir, "plan.json", plan);
+    await writeSessionArtifact(sessionDir, "golden.json", golden.get());
     throw new PlanRejectedError();
   }
 
+  await writeSessionArtifact(sessionDir, "plan.json", plan);
   sessionCallbacks?.onSessionLog?.("Running orchestrator…");
 
-  const orchestratorSummary = await runOrchestrator({
-    orchestratorModel,
-    subagentModel,
-    plan,
-    goal: opts.goal,
-    projectRoot,
-    workspaceRoot,
-    agentRegistry,
-    skillRegistry,
-    golden,
-    callbacks: sessionCallbacks,
-    skipPlanner: opts.skipPlanner,
-  });
+  let orchestratorSummary = "";
+  try {
+    orchestratorSummary = await runOrchestrator({
+      orchestratorModel,
+      subagentModel,
+      plan,
+      goal: opts.goal,
+      projectRoot,
+      workspaceRoot,
+      agentRegistry,
+      skillRegistry,
+      golden,
+      callbacks: sessionCallbacks,
+      skipPlanner: opts.skipPlanner,
+    });
+  } finally {
+    await writeSessionArtifact(sessionDir, "golden.json", golden.get());
+  }
 
   if (verbose) {
     emitTraceLine("orchestrator-final", { text: orchestratorSummary });
@@ -155,7 +179,7 @@ export async function runPicoagentSession(
 
   await golden.save();
 
-  return { plan, orchestratorSummary };
+  return { sessionId, plan, orchestratorSummary };
 }
 
 export type { Plan } from "@/core/agents/planner.ts";

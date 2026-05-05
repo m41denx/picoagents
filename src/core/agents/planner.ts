@@ -176,6 +176,10 @@ export async function runPlanner(
       ? `${briefing}\n\n---\n\n## User goal / request\n\n${goal}`
       : `Goal / request:\n${goal}`;
 
+  const requiredGoalPathHints = [".cursor/plans"].filter((h) =>
+    goal.includes(h),
+  );
+
   const draft: Plan = {
     title: "Draft plan",
     phases: [{ name: "Main", tasks: [] }],
@@ -203,7 +207,7 @@ export async function runPlanner(
     inputSchema: z.object({
       phase: z.string(),
       id: z.string(),
-      title: z.string(),
+      title: z.string().optional(),
       description: z.string().optional(),
       dependsOn: z.array(z.string()).optional(),
     }),
@@ -215,7 +219,13 @@ export async function runPlanner(
         draft.phases.push(target);
       }
       const i = target.tasks.findIndex((t) => t.id === id);
-      const next = { id, title, description, dependsOn };
+      const prev = i >= 0 ? target.tasks[i] : undefined;
+      const next = {
+        id,
+        title: title ?? prev?.title ?? id,
+        description: description ?? prev?.description,
+        dependsOn: dependsOn ?? prev?.dependsOn,
+      };
       if (i >= 0) target.tasks[i] = next;
       else target.tasks.push(next);
       return { ok: true, phase: phaseName, task: next };
@@ -241,15 +251,37 @@ export async function runPlanner(
       "Finalize and return the current plan. Must be called exactly once at the end.",
     inputSchema: z.object({}),
     execute: async () => {
-      const parsed = planSchema.safeParse(draft);
+      const normalized: Plan = {
+        title: draft.title,
+        phases: draft.phases.filter((p) => p.tasks.length > 0),
+      };
+      const parsed = planSchema.safeParse(normalized);
       if (!parsed.success) {
         return {
           ok: false,
           error: parsed.error.issues.map((i) => i.message).join("; "),
         };
       }
+      if (parsed.data.title.trim().toLowerCase() === "draft plan") {
+        return {
+          ok: false,
+          error: "Plan title is still default ('Draft plan'). Set a meaningful title.",
+        };
+      }
       if (!parsed.data.phases.some((p) => p.tasks.length > 0)) {
         return { ok: false, error: "Plan must include at least one task." };
+      }
+      if (requiredGoalPathHints.length > 0) {
+        const body = JSON.stringify(parsed.data).toLowerCase();
+        const missing = requiredGoalPathHints.filter(
+          (h) => !body.includes(h.toLowerCase()),
+        );
+        if (missing.length > 0) {
+          return {
+            ok: false,
+            error: `Plan misses required goal context/path hints: ${missing.join(", ")}`,
+          };
+        }
       }
       finalized = parsed.data;
       return { ok: true, plan: parsed.data };
@@ -298,15 +330,11 @@ If not, make minimal fixes with upsert_plan_task/remove_plan_task and then call 
         onPlannerStepTrace?.(serializeModelStep(event));
       },
     });
-    if (!finalized) {
-      const parsed = planSchema.safeParse(draft);
-      if (parsed.success && parsed.data.phases.some((p) => p.tasks.length > 0)) {
-        finalized = parsed.data;
-      }
-    }
   }
   if (!finalized) {
-    throw new Error("Planner did not finalize a valid plan");
+    throw new Error(
+      `Planner did not finalize a valid plan. Draft state:\n${JSON.stringify(draft, null, 2)}`,
+    );
   }
   return finalized;
 }
