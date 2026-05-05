@@ -59,10 +59,14 @@ export async function runSubagent({
     "- Treat `Task` as the primary instruction and execute it directly.",
     "- `Golden context` is background only; do not reinterpret mission or invent new high-level objectives from it.",
     "- Do not run meta-analysis about benchmark legitimacy unless the task explicitly asks for analysis.",
+    "- Skill triage first: check the Available skills menu before acting.",
+    "- If any listed skill seems relevant, call readSkill early (usually first tool call) and follow it.",
+    "- If no skill matches, state that briefly and proceed.",
     "",
     menu,
     "",
     "Use the read_skill tool when you need full instructions from a skill.",
+    "Default behavior: prefer one relevant readSkill lookup over guessing hidden conventions.",
   ];
 
   const userParts = [
