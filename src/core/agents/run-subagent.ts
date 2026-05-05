@@ -48,15 +48,21 @@ export async function runSubagent({
   const sysParts = [
     agent.systemPrompt,
     "",
+    "Execution contract:",
+    "- You are a subagent worker, not the orchestrator.",
+    "- Treat `Task` as the primary instruction and execute it directly.",
+    "- `Golden context` is background only; do not reinterpret mission or invent new high-level objectives from it.",
+    "- Do not run meta-analysis about benchmark legitimacy unless the task explicitly asks for analysis.",
+    "",
     menu,
     "",
     "Use the read_skill tool when you need full instructions from a skill.",
   ];
 
   const userParts = [
-    `Golden context (short):\n${goldenExcerpt || "(none)"}`,
-    perspective ? `Perspective / angle:\n${perspective}` : "",
     `Task:\n${task}`,
+    perspective ? `Perspective / angle:\n${perspective}` : "",
+    `Golden context (background only):\n${goldenExcerpt || "(none)"}`,
   ].filter(Boolean);
 
   const system = sysParts.join("\n");

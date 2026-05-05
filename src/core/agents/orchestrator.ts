@@ -164,7 +164,8 @@ export function createOrchestratorTools(opts: {
               agent,
               task: r.task,
               perspective: r.perspective,
-              goldenExcerpt: golden.excerptForPrompt(),
+              // Keep subagent context focused; large global context can cause role drift.
+              goldenExcerpt: golden.excerptForPrompt(1200),
               skillRegistry,
               workspaceRoot,
               onStepTrace: (trace) =>
@@ -283,6 +284,14 @@ Rules:
 - Prefer spawn_subagents for independent research or perspectives; it runs agents concurrently (batched by PICOAGENT_MAX_PARALLEL) and waits for all results.
 - Track tasks with upsert_task / list_tasks.
 - Persist important conclusions with append_agent_md_section or record_decision.
+- When delegating to spawn_subagents, each runs[].task must be a self-contained mini-brief with:
+  1) What to do (exact deliverable)
+  2) Why it matters (goal/risk/user intent)
+  3) Context/where to look (paths, symbols, assumptions)
+  4) Done criteria (how to know the task is complete)
+  5) Constraints (e.g. read-only, no scope creep, output format)
+- Do not send vague tasks like "investigate this" without context. Subagents should not need hidden orchestrator state to succeed.
+- Prefer explicit file paths and expected outputs over generic prompts.
 - When finished, respond with a concise status summary for the user.${
     opts.skipPlanner
       ? "\n\nNote: The user ran --oneshot (no planner). There is only a single high-level task — delegate aggressively with spawn_subagents and tools."
