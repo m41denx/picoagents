@@ -1,0 +1,89 @@
+import { getLanguageModel } from "./model/provider.ts";
+import { getModelId } from "./config.ts";
+import { loadSkills } from "./registry/load-skills.ts";
+import { loadCustomAgents, mergeRegistry } from "./registry/load-agents.ts";
+import { createGeneralistAgent } from "./agents/builtin-generalist.ts";
+import { GoldenStore } from "./context/golden.ts";
+import { createOneshotPlan, runPlanner, type Plan } from "./agents/planner.ts";
+import { runOrchestrator, type OrchestratorCallbacks } from "./agents/orchestrator.ts";
+
+export type PicoagentSessionCallbacks = OrchestratorCallbacks & {
+  onPlanReady?: (plan: Plan) => Promise<boolean>;
+  onSessionLog?: (line: string) => void;
+};
+
+export type { OrchestratorCallbacks };
+
+export type RunPicoagentSessionOptions = {
+  projectRoot: string;
+  /** Workspace files root — defaults to projectRoot */
+  workspaceRoot?: string;
+  goal: string;
+  /** If true, approve plan without prompting */
+  autoApprovePlan?: boolean;
+  /** Skip planner LLM; use a single-task plan and go straight to orchestrator */
+  skipPlanner?: boolean;
+  callbacks?: PicoagentSessionCallbacks;
+};
+
+export type RunPicoagentSessionResult = {
+  plan: Plan;
+  orchestratorSummary: string;
+};
+
+export async function runPicoagentSession(
+  opts: RunPicoagentSessionOptions,
+): Promise<RunPicoagentSessionResult> {
+  const projectRoot = opts.projectRoot;
+  const workspaceRoot = opts.workspaceRoot ?? projectRoot;
+
+  const skillRegistry = await loadSkills(projectRoot);
+  const customAgents = await loadCustomAgents(projectRoot);
+  const generalist = createGeneralistAgent();
+  const agentRegistry = mergeRegistry(generalist, customAgents);
+
+  const golden = await GoldenStore.load(projectRoot);
+
+  const orchestratorModel = getLanguageModel(getModelId("orchestrator"));
+  const subagentModel = getLanguageModel(getModelId("subagent"));
+
+  let plan: Plan;
+  if (opts.skipPlanner) {
+    opts.callbacks?.onSessionLog?.("Skipping planner (--oneshot).");
+    plan = createOneshotPlan(opts.goal);
+  } else {
+    const plannerModel = getLanguageModel(getModelId("planner"));
+    opts.callbacks?.onSessionLog?.("Generating plan…");
+    plan = await runPlanner(plannerModel, opts.goal);
+  }
+
+  let approved = Boolean(opts.autoApprovePlan) || Boolean(opts.skipPlanner);
+  if (!approved && opts.callbacks?.onPlanReady) {
+    approved = await opts.callbacks.onPlanReady(plan);
+  }
+  if (!approved) {
+    throw new Error("Plan was not approved.");
+  }
+
+  opts.callbacks?.onSessionLog?.("Running orchestrator…");
+
+  const orchestratorSummary = await runOrchestrator({
+    orchestratorModel,
+    subagentModel,
+    plan,
+    goal: opts.goal,
+    projectRoot,
+    workspaceRoot,
+    agentRegistry,
+    skillRegistry,
+    golden,
+    callbacks: opts.callbacks,
+    skipPlanner: opts.skipPlanner,
+  });
+
+  await golden.save();
+
+  return { plan, orchestratorSummary };
+}
+
+export type { Plan } from "./agents/planner.ts";
