@@ -51,7 +51,8 @@ function whimsicalOrchestratorState(tick: number): string {
     "Preparing…",
     "Lamenting…",
   ] as const;
-  return states[tick % states.length]!;
+  const phase = Math.floor(Math.max(0, tick) / 50);
+  return states[phase % states.length]!;
 }
 
 export function formatDurationSec(ms: number): string {
@@ -189,11 +190,11 @@ export function RunDashboard({
             <Text bold>Orchestrator</Text>
             <Text dimColor> — </Text>
             {orchestrator.finished ? (
-              <Text color="green">all agents complete</Text>
+              <Text color="green">All agents complete</Text>
             ) : orchestrator.multiStep ? (
               <Text color="yellow">{whimsicalOrchestratorState(tick)}</Text>
             ) : orchestrator.running ? (
-              <Text color="cyan">working…</Text>
+              <Text color="cyan">Working…</Text>
             ) : (
               <Text dimColor>…</Text>
             )}
