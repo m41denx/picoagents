@@ -33,6 +33,8 @@ Create production-usable `SubAgent` definitions that the loader can discover and
 - Use `.withSystemPrompt(...)` for role behavior.
 - Add tools via `.withTool(name, toolDef)` only when needed.
 - Use `.withDefaultTools()` if the agent should access workspace read/search tools.
+- Use `.withDeveloperWriteTools()` for safe `write_file` / `ensure_dir` under the workspace (no shell).
+- Use `.withResearcherTools()` for SerpAPI DuckDuckGo search + `fetch_web_page` (set `SERPAPI_API_KEY`).
 - Use `.withSkill("name.mdc")` for opt-in skills.
 - Keep default behavior deterministic where possible.
 

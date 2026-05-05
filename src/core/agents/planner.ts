@@ -120,7 +120,15 @@ function formatAgentEntry(id: string, agent: SubAgent): string {
     ? "\n  - **Plus** default workspace tools (read_file, list_dir, glob_search, grep; optional run_command if shell env enabled), merged with custom tools above."
     : "";
 
-  return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - Custom tools: ${toolsLine}.${skillNote}${defaultsNote}`;
+  const devNote = agent.includeDeveloperWriteTools
+    ? "\n  - **Plus** developer write tools: ensure_dir, write_file (under workspace; no shell)."
+    : "";
+
+  const researchNote = agent.includeResearcherTools
+    ? "\n  - **Plus** researcher tools: duckduckgo_search (SerpAPI, needs SERPAPI_API_KEY), fetch_web_page (raw HTTP)."
+    : "";
+
+  return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - Custom tools: ${toolsLine}.${skillNote}${defaultsNote}${devNote}${researchNote}`;
 }
 
 const PLANNER_SYSTEM = `You are the planning phase of **picoagents**, a harness where an orchestrator later spawns **registered subagents** (by agent key) and uses **skills** (.mdc files) via readSkill.

@@ -3,6 +3,8 @@ import type { LanguageModel } from "ai";
 import type { SubAgent } from "@/subagent.ts";
 import type { SkillRegistry } from "@/core/registry/load-skills.ts";
 import { createWorkspaceTools } from "@/core/tools/workspace.ts";
+import { createDeveloperWorkspaceTools } from "@/core/tools/developer-write.ts";
+import { createResearcherTools } from "@/core/tools/researcher-tools.ts";
 import { createReadSkillTool } from "@/core/tools/read-skill-tool.ts";
 import type { ModelStepTrace } from "@/core/observability.ts";
 import { serializeModelStep } from "@/core/observability.ts";
@@ -41,6 +43,10 @@ export async function runSubagent({
 
   const mergedTools: Record<string, unknown> = {
     ...ws,
+    ...(agent.includeDeveloperWriteTools
+      ? createDeveloperWorkspaceTools(workspaceRoot)
+      : {}),
+    ...(agent.includeResearcherTools ? createResearcherTools() : {}),
     ...(agent.tools as Record<string, unknown>),
     readSkill,
   };

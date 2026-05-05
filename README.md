@@ -85,6 +85,7 @@ bun run src/cli.ts --headless --oneshot --goal "…"     # skip planner, single-
 | `PICOAGENT_MAX_PARALLEL`         | Max concurrent subagent runs in one batch (default **3**).                                                                                             |
 | `PICOAGENT_ALLOW_SHELL`          | Set to `1` to expose `run_command` for the built-in **generalist** (runs under `--workspace`). **High risk** — only when you trust the model and task. |
 | `PICOAGENT_SKILL_BODY_MAX_CHARS` | Upper bound on skill body returned by `readSkill` (default large).                                                                                     |
+| `SERPAPI_API_KEY`                | Required for the **researcher** subagent’s `duckduckgo_search` tool (SerpAPI DuckDuckGo JSON). |
 
 
 Example for LM Studio:
@@ -113,7 +114,7 @@ At `--project-root` (default: current directory):
 | ---------------------------------- | -------------------------------------------------------------------- |
 | `.picoagent/sessions/<uuid>/...`   | Per-run artifacts (`plan.json`, `golden.json`) for observability.   |
 | `.picoagent/AGENT.md`              | Optional durable notes (append-only if used by orchestrator tools). |
-| `.picoagent/agents/*.ts`           | **Custom subagents** (see below).                                    |
+| `.picoagent/agents/*.ts`           | **Custom subagents** (see below). Includes built-in examples **developer** and **researcher**. |
 | `.picoagent/skills/*.mdc`          | **Skills** (see below).                                              |
 | `.picoagent/package.json`          | Local workspace deps for agent/skill code (auto-created if missing). |
 | `.picoagent/node_modules/`         | Local deps installed by bootstrap (`bun install` in `.picoagent`).   |
@@ -133,6 +134,15 @@ This lets agent files import workspace-local dependencies without polluting the 
 
 
 ## Custom subagents
+
+### Bundled examples
+
+| Agent id       | Role |
+| -------------- | ---- |
+| `developer`    | Read/search workspace **and** write UTF-8 files via `write_file` / `ensure_dir` (no shell). |
+| `researcher`   | SerpAPI **DuckDuckGo** JSON search (`organic_results`, `search_assist`) plus raw `fetch_web_page`. Needs `SERPAPI_API_KEY`. |
+
+Opt in from code with `SubAgent.withDeveloperWriteTools()` and `SubAgent.withResearcherTools()` (merged at run time under the workspace).
 
 1. Add files under `.picoagent/agents/` (`.ts` / `.tsx`). The loader walks this tree; **each file** must export a `SubAgent` as `**export default`** or `**export const subagent**`.
 2. The **filename stem** (e.g. `google-enthusiast.ts` → `google-enthusiast`) becomes the default **agent id** unless you set `meta.id` on `SubAgent`.
