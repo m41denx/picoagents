@@ -62,6 +62,8 @@ export function SessionApp({
   workspaceRoot,
   oneshot,
   verbose = false,
+  enableDeveloperAgent = false,
+  enableResearchAgent = false,
   onFinished,
   onAborted,
   onError,
@@ -72,6 +74,8 @@ export function SessionApp({
   oneshot: boolean;
   /** Full UI + stderr step traces (also set `PICOAGENT_VERBOSE=1`). */
   verbose?: boolean;
+  enableDeveloperAgent?: boolean;
+  enableResearchAgent?: boolean;
   onFinished: (summary: string) => void;
   /** Plan declined — exit without treating as an error */
   onAborted?: () => void;
@@ -129,6 +133,8 @@ export function SessionApp({
           workspaceRoot,
           goal,
           skipPlanner: oneshot,
+          enableDeveloperAgent,
+          enableResearchAgent,
           verbose,
           callbacks: {
             onSessionLog: () => {},
@@ -253,7 +259,7 @@ export function SessionApp({
     return () => {
       cancelled = true;
     };
-  }, [goal, projectRoot, workspaceRoot, oneshot, verbose, exit]);
+  }, [goal, projectRoot, workspaceRoot, oneshot, verbose, enableDeveloperAgent, enableResearchAgent, exit]);
 
   const planReviewDuration =
     planningStartMs != null && planningEndMs != null
@@ -324,7 +330,12 @@ export async function runTuiSession(
   goal: string,
   projectRoot: string,
   workspaceRoot: string,
-  opts?: { oneshot?: boolean; verbose?: boolean },
+  opts?: {
+    oneshot?: boolean;
+    verbose?: boolean;
+    enableDeveloperAgent?: boolean;
+    enableResearchAgent?: boolean;
+  },
 ): Promise<string | null> {
   const { render } = await import("ink");
   return await new Promise<string | null>((resolve, reject) => {
@@ -335,6 +346,8 @@ export async function runTuiSession(
         workspaceRoot={workspaceRoot}
         oneshot={opts?.oneshot ?? false}
         verbose={opts?.verbose ?? false}
+        enableDeveloperAgent={opts?.enableDeveloperAgent ?? false}
+        enableResearchAgent={opts?.enableResearchAgent ?? false}
         onFinished={(s) => resolve(s)}
         onAborted={() => resolve(null)}
         onError={(e) => reject(e)}

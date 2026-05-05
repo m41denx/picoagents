@@ -51,6 +51,8 @@ async function main() {
           {
             oneshot: args.oneshot,
             verbose,
+            enableDeveloperAgent: args.enableDeveloperAgent,
+            enableResearchAgent: args.enableResearchAgent,
           },
         );
         if (summary === null) return null;
@@ -64,6 +66,8 @@ async function main() {
         goal: iterationGoal,
         skipPlanner: args.oneshot,
         autoApprovePlan: args.yes || args.oneshot,
+        enableDeveloperAgent: args.enableDeveloperAgent,
+        enableResearchAgent: args.enableResearchAgent,
         verbose,
         callbacks: {
           onSessionLog: (l) => console.error(`[session] ${l}`),

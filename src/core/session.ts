@@ -8,6 +8,8 @@ import { getModelId } from "@/core/config.ts";
 import { loadSkills } from "@/core/registry/load-skills.ts";
 import { loadCustomAgents, mergeRegistry } from "@/core/registry/load-agents.ts";
 import { createGeneralistAgent } from "@/core/agents/builtin-generalist.ts";
+import { createDeveloperAgent } from "@/core/agents/builtin-developer.ts";
+import { createResearcherAgent } from "@/core/agents/builtin-researcher.ts";
 import { GoldenStore } from "@/core/context/golden.ts";
 import {
   buildPlannerBriefing,
@@ -44,6 +46,10 @@ export type RunPicoagentSessionOptions = {
   autoApprovePlan?: boolean;
   /** Skip planner LLM; use a single-task plan and go straight to orchestrator */
   skipPlanner?: boolean;
+  /** Enable bundled built-in `developer` agent (overrides same id from .picoagent/agents). */
+  enableDeveloperAgent?: boolean;
+  /** Enable bundled built-in `researcher` agent (overrides same id from .picoagent/agents). */
+  enableResearchAgent?: boolean;
   /** Rich traces on stderr + structured step callbacks (also env `PICOAGENT_VERBOSE=1`). */
   verbose?: boolean;
   callbacks?: PicoagentSessionCallbacks;
@@ -170,6 +176,12 @@ export async function runPicoagentSession(
   const customAgents = await loadCustomAgents(projectRoot);
   const generalist = createGeneralistAgent();
   const agentRegistry = mergeRegistry(generalist, customAgents);
+  if (opts.enableDeveloperAgent) {
+    agentRegistry.byId.set("developer", createDeveloperAgent());
+  }
+  if (opts.enableResearchAgent) {
+    agentRegistry.byId.set("researcher", createResearcherAgent());
+  }
 
   const golden = await GoldenStore.load(projectRoot);
 

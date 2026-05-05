@@ -67,6 +67,8 @@ bun run src/cli.ts --headless --oneshot --goal "…"     # skip planner, single-
 | `-y`, `--yes`          | Approve the planner output without prompting (required for headless unless `--oneshot`). |
 | `--oneshot`            | Skip the planner LLM and use a single-task plan; goes straight to the orchestrator.      |
 | `--headless`           | Disable Ink TUI even if a TTY is present.                                                |
+| `--enable-developer-agent` | Enable bundled built-in `developer` agent for this run. |
+| `--enable-research-agent`  | Enable bundled built-in `researcher` agent for this run. |
 | `--smoke`              | Connectivity check only (see below).                                                     |
 | `-h`, `--help`         | Help text.                                                                               |
 
@@ -114,7 +116,7 @@ At `--project-root` (default: current directory):
 | ---------------------------------- | -------------------------------------------------------------------- |
 | `.picoagent/sessions/<uuid>/...`   | Per-run artifacts (`plan.json`, `golden.json`) for observability.   |
 | `.picoagent/AGENT.md`              | Optional durable notes (append-only if used by orchestrator tools). |
-| `.picoagent/agents/*.ts`           | **Custom subagents** (see below). Includes built-in examples **developer** and **researcher**. |
+| `.picoagent/agents/*.ts`           | **Custom subagents** (see below). |
 | `.picoagent/skills/*.mdc`          | **Skills** (see below).                                              |
 | `.picoagent/package.json`          | Local workspace deps for agent/skill code (auto-created if missing). |
 | `.picoagent/node_modules/`         | Local deps installed by bootstrap (`bun install` in `.picoagent`).   |
@@ -135,14 +137,24 @@ This lets agent files import workspace-local dependencies without polluting the 
 
 ## Custom subagents
 
-### Bundled examples
+### Bundled built-in agents (feature-gated)
 
 | Agent id       | Role |
 | -------------- | ---- |
 | `developer`    | Read/search workspace **and** write UTF-8 files via `write_file` / `ensure_dir` (no shell). |
 | `researcher`   | SerpAPI **DuckDuckGo** JSON search (`organic_results`, `search_assist`) plus raw `fetch_web_page`. Needs `SERPAPI_API_KEY`. |
 
-Opt in from code with `SubAgent.withDeveloperWriteTools()` and `SubAgent.withResearcherTools()` (merged at run time under the workspace).
+Enable them explicitly per run:
+
+- `--enable-developer-agent`
+- `--enable-research-agent`
+
+When enabled, built-in ids (`developer` / `researcher`) override any custom agent with the same id. When not enabled, custom agents with those ids run normally.
+
+For custom agents, tool bundles stay reusable from code via:
+
+- `SubAgent.withDeveloperWriteTools()`
+- `SubAgent.withResearcherTools()`
 
 1. Add files under `.picoagent/agents/` (`.ts` / `.tsx`). The loader walks this tree; **each file** must export a `SubAgent` as `**export default`** or `**export const subagent**`.
 2. The **filename stem** (e.g. `google-enthusiast.ts` → `google-enthusiast`) becomes the default **agent id** unless you set `meta.id` on `SubAgent`.

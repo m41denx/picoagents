@@ -9,6 +9,8 @@ export type CliArgs = {
   headless: boolean;
   verbose: boolean;
   infinite: boolean;
+  enableDeveloperAgent: boolean;
+  enableResearchAgent: boolean;
   smoke: boolean;
   help: boolean;
 };
@@ -21,6 +23,8 @@ export function parseArgs(argv: string[]): CliArgs {
     headless: false,
     verbose: false,
     infinite: false,
+    enableDeveloperAgent: false,
+    enableResearchAgent: false,
     smoke: false,
     help: false,
   };
@@ -33,6 +37,8 @@ export function parseArgs(argv: string[]): CliArgs {
     else if (a === "--headless") out.headless = true;
     else if (a === "--verbose" || a === "-v") out.verbose = true;
     else if (a === "--infinite") out.infinite = true;
+    else if (a === "--enable-developer-agent") out.enableDeveloperAgent = true;
+    else if (a === "--enable-research-agent") out.enableResearchAgent = true;
     else if (a === "--smoke") out.smoke = true;
     else if (a === "--project-root" && argv[i + 1]) {
       out.projectRoot = resolve(argv[++i]!);
@@ -51,13 +57,17 @@ export function printHelp(): void {
   console.log(`picoagents — Bun + AI SDK subagent harness
 
 Usage:
-  picoagents [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless] [--verbose] [--infinite]
+  picoagents [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless] [--verbose] [--infinite] [--enable-developer-agent] [--enable-research-agent]
   picoagents --smoke
 
 Flags:
   --oneshot   Skip planner; single-task plan and go straight to orchestrator
   --verbose   Full step traces on stderr ([picoagents:…]); TUI shows untrimmed output
   --infinite  Loop iterations until Ctrl+C (1st graceful, 2nd force)
+  --enable-developer-agent  Enable bundled built-in "developer" agent
+  --enable-research-agent   Enable bundled built-in "researcher" agent
+  --enable-developer-agent  Enable bundled built-in "developer" agent
+  --enable-research-agent   Enable bundled built-in "researcher" agent
 
 Environment:
   OPENAI_BASE_URL             OpenAI-compatible API base (default LM Studio)
