@@ -45,13 +45,15 @@
     "start": "bun run src/cli.ts",
     "smoke": "bun run src/smoke.ts",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck"
+    "prepublishOnly": "bun run typecheck",
+    "build": "bun build --compile ./src/cli.ts --outfile ./dist/picoagents"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.60",
     "ai": "^6.0.175",
     "ink": "^7.0.1",
     "react": "^19.2.5",
+    "react-devtools-core": "^6",
     "yaml": "^2.8.4",
     "zod": "^4.4.3"
   },
