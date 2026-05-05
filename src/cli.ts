@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { runPicoagentSession } from "./core/session.ts";
+import { runPicoagentSession } from "@/core/session.ts";
 import { resolve } from "node:path";
 
 function parseArgs(argv: string[]) {

@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { SkillRegistry } from "../registry/load-skills.ts";
-import { maxSkillBodyChars } from "../config.ts";
+import type { SkillRegistry } from "@/core/registry/load-skills.ts";
+import { maxSkillBodyChars } from "@/core/config.ts";
 
 export function createReadSkillTool(registry: SkillRegistry, allowedNames: readonly string[]) {
   const allow = new Set(allowedNames);

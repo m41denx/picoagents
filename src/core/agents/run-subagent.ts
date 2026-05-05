@@ -1,9 +1,9 @@
 import { generateText, stepCountIs } from "ai";
 import type { LanguageModel } from "ai";
-import type { SubAgent } from "../../subagent.ts";
-import type { SkillRegistry } from "../registry/load-skills.ts";
-import { createWorkspaceTools } from "../tools/workspace.ts";
-import { createReadSkillTool } from "../tools/read-skill-tool.ts";
+import type { SubAgent } from "@/subagent.ts";
+import type { SkillRegistry } from "@/core/registry/load-skills.ts";
+import { createWorkspaceTools } from "@/core/tools/workspace.ts";
+import { createReadSkillTool } from "@/core/tools/read-skill-tool.ts";
 
 export type RunSubagentParams = {
   model: LanguageModel;

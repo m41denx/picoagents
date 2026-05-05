@@ -1,7 +1,7 @@
 import { basename, extname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readdir } from "node:fs/promises";
-import { SubAgent } from "../../subagent.ts";
+import { SubAgent } from "@/subagent.ts";
 
 export type AgentRegistry = {
   /** Includes built-in `generalist` */

@@ -2,8 +2,8 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { readFile } from "node:fs/promises";
-import type { SubAgent } from "../../subagent.ts";
-import type { SkillRecord } from "./skill-types.ts";
+import type { SubAgent } from "@/subagent.ts";
+import type { SkillRecord } from "@/core/registry/skill-types.ts";
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 

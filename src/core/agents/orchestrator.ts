@@ -1,14 +1,14 @@
 import { generateText, stepCountIs, tool } from "ai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
-import type { AgentRegistry } from "../registry/load-agents.ts";
-import type { SkillRegistry } from "../registry/load-skills.ts";
-import type { GoldenStore } from "../context/golden.ts";
-import { appendAgentMdSection } from "../context/agent-md.ts";
-import { getMaxParallel } from "../config.ts";
-import { parallelMapSettled } from "../parallel.ts";
-import { runSubagent } from "./run-subagent.ts";
-import type { Plan } from "./planner.ts";
+import type { AgentRegistry } from "@/core/registry/load-agents.ts";
+import type { SkillRegistry } from "@/core/registry/load-skills.ts";
+import type { GoldenStore } from "@/core/context/golden.ts";
+import { appendAgentMdSection } from "@/core/context/agent-md.ts";
+import { getMaxParallel } from "@/core/config.ts";
+import { parallelMapSettled } from "@/core/parallel.ts";
+import { runSubagent } from "@/core/agents/run-subagent.ts";
+import type { Plan } from "@/core/agents/planner.ts";
 
 export type TaskRow = {
   id: string;

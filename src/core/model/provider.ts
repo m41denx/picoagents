@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
-import { getOpenAICompatConfig } from "../config.ts";
+import { getOpenAICompatConfig } from "@/core/config.ts";
 
 let cached: ReturnType<typeof createOpenAI> | undefined;
 

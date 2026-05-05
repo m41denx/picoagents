@@ -1,4 +1,4 @@
-import { SubAgent } from "../../subagent.ts";
+import { SubAgent } from "@/subagent.ts";
 
 export function createGeneralistAgent(): SubAgent {
   return new SubAgent({

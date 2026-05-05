@@ -1,16 +1,16 @@
-import { getLanguageModel } from "./model/provider.ts";
-import { getModelId } from "./config.ts";
-import { loadSkills } from "./registry/load-skills.ts";
-import { loadCustomAgents, mergeRegistry } from "./registry/load-agents.ts";
-import { createGeneralistAgent } from "./agents/builtin-generalist.ts";
-import { GoldenStore } from "./context/golden.ts";
+import { getLanguageModel } from "@/core/model/provider.ts";
+import { getModelId } from "@/core/config.ts";
+import { loadSkills } from "@/core/registry/load-skills.ts";
+import { loadCustomAgents, mergeRegistry } from "@/core/registry/load-agents.ts";
+import { createGeneralistAgent } from "@/core/agents/builtin-generalist.ts";
+import { GoldenStore } from "@/core/context/golden.ts";
 import {
   buildPlannerBriefing,
   createOneshotPlan,
   runPlanner,
   type Plan,
-} from "./agents/planner.ts";
-import { runOrchestrator, type OrchestratorCallbacks } from "./agents/orchestrator.ts";
+} from "@/core/agents/planner.ts";
+import { runOrchestrator, type OrchestratorCallbacks } from "@/core/agents/orchestrator.ts";
 
 export type PicoagentSessionCallbacks = OrchestratorCallbacks & {
   onPlanReady?: (plan: Plan) => Promise<boolean>;
@@ -98,4 +98,4 @@ export async function runPicoagentSession(
   return { plan, orchestratorSummary };
 }
 
-export type { Plan } from "./agents/planner.ts";
+export type { Plan } from "@/core/agents/planner.ts";

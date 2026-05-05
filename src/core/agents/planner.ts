@@ -1,9 +1,9 @@
 import { generateText, Output, zodSchema } from "ai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
-import type { AgentRegistry } from "../registry/load-agents.ts";
-import type { SkillRegistry } from "../registry/load-skills.ts";
-import type { SubAgent } from "../../subagent.ts";
+import type { AgentRegistry } from "@/core/registry/load-agents.ts";
+import type { SkillRegistry } from "@/core/registry/load-skills.ts";
+import type { SubAgent } from "@/subagent.ts";
 
 export const planTaskSchema = z.object({
   id: z.string(),

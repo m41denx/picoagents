@@ -3,8 +3,8 @@
  * Quick connectivity check against OPENAI_BASE_URL / PICOAGENT_MODEL (or subagent model).
  */
 import { generateText } from "ai";
-import { getLanguageModel } from "./core/model/provider.ts";
-import { getModelId } from "./core/config.ts";
+import { getLanguageModel } from "@/core/model/provider.ts";
+import { getModelId } from "@/core/config.ts";
 
 const model = getLanguageModel(getModelId("subagent"));
 

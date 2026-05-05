@@ -4,8 +4,8 @@ import { join, relative } from "node:path";
 import { promisify } from "node:util";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import { allowShell } from "../config.ts";
-import { safeResolveUnder, toPosix } from "../paths.ts";
+import { allowShell } from "@/core/config.ts";
+import { safeResolveUnder, toPosix } from "@/core/paths.ts";
 
 /** Very small glob subset: `**`, `*`, path segments */
 export function matchGlob(relPath: string, pattern: string): boolean {
