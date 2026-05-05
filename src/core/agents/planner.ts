@@ -43,9 +43,9 @@ export function buildPlannerBriefing(
   sections.push(`### Execution model (what your plan is for)
 After approval, an **orchestrator** LLM runs with tools: it tracks tasks, updates shared session notes, and calls **spawn_subagents** to run **parallel batches** of work (concurrency capped by \`PICOAGENT_MAX_PARALLEL\`, default 3). Each spawn selects an **agentKey** from the registry below and passes a **task** string (and optionally a **perspective** for varied angles on the same question).
 
-**Workspace files** for the built-in **generalist** are rooted at:
+**Workspace files** for the built-in **generalist** (and for custom agents that call \`.withDefaultTools()\`) are rooted at:
 \`${workspaceRoot}\`
-(Custom agents do not automatically get full workspace tools unless they define them.)
+(Custom agents otherwise only get their own \`.withTool()\` definitions plus **readSkill**, unless they opt into defaults.)
 
 ### Built-in capabilities you should assume exist
 - **Orchestrator**: task graph, merging subagent outputs, recording progress (you do not plan orchestrator tool names — describe *work* and *which agent kinds* fit).
@@ -107,7 +107,11 @@ function formatAgentEntry(id: string, agent: SubAgent): string {
       ? toolKeys.join(", ") + ", readSkill"
       : "readSkill (define tools in .picoagent/agents to add capabilities)";
 
-  return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - Custom tools: ${toolsLine}.${skillNote}`;
+  const defaultsNote = agent.includeDefaultWorkspaceTools
+    ? "\n  - **Plus** default workspace tools (read_file, list_dir, glob_search, grep; optional run_command if shell env enabled), merged with custom tools above."
+    : "";
+
+  return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - Custom tools: ${toolsLine}.${skillNote}${defaultsNote}`;
 }
 
 const PLANNER_SYSTEM = `You are the planning phase of **picoagents**, a harness where an orchestrator later spawns **registered subagents** (by agent key) and uses **skills** (.mdc files) via readSkill.

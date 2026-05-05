@@ -30,10 +30,9 @@ export async function runSubagent({
   const allowed = skillRegistry.visibleSkillNames(agent);
   const readSkill = createReadSkillTool(skillRegistry, allowed);
 
-  const ws =
-    agent.meta.id === "generalist"
-      ? createWorkspaceTools(workspaceRoot)
-      : {};
+  const useWorkspace =
+    agent.meta.id === "generalist" || agent.includeDefaultWorkspaceTools;
+  const ws = useWorkspace ? createWorkspaceTools(workspaceRoot) : {};
 
   const mergedTools: Record<string, unknown> = {
     ...ws,

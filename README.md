@@ -152,6 +152,7 @@ const googleAgent = new SubAgent({
 })
   .withSystemPrompt("You are a search-focused assistant. Prefer credible sources and cite URLs.")
   .withSkill("server-patterns.mdc") // only when that skill has alwaysApply: false
+  .withDefaultTools() // optional: same workspace read/search tools as built-in generalist
   .withTool("search", searchTool)
   .withTool("read_website", readWebsiteTool);
 
@@ -159,7 +160,7 @@ export default googleAgent;
 ```
 
 1. **Dependencies** (e.g. `axios`): install them in **this** project’s `package.json` and import from your agent file. Put **shared helpers** in e.g. `.picoagent/lib/` and import from the agent file—**do not** put non-agent `.ts` files under `agents/` or the loader will try to register them as agents.
-2. **Workspace tools** (`read_file`, `grep`, optional shell, …) are attached only to the built-in `**generalist`**. Custom agents get **their** tools plus `**readSkill`**.
+2. **Tools**: Every subagent gets **`readSkill`** plus any tools from **`.withTool()`**. The built-in **`generalist`** always receives the default workspace set (**`read_file`**, **`list_dir`**, **`glob_search`**, **`grep`**, and optional **`run_command`** when `PICOAGENT_ALLOW_SHELL=1`). Custom agents can opt into that same set with **`.withDefaultTools()`** (merged before your custom tools; a custom tool with the same name overrides).
 
 ## Skills (`.mdc`)
 

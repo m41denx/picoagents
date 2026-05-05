@@ -18,6 +18,8 @@ export class SubAgent {
   private _systemPrompt = "You are a helpful specialist subagent.";
   private readonly _tools = new Map<string, Tool>();
   private readonly _skillRefs = new Set<string>();
+  /** Merge read/search workspace tools (same set as built-in `generalist`) at run time */
+  private _includeDefaultWorkspaceTools = false;
 
   constructor(meta: SubAgentMeta) {
     this.meta = meta;
@@ -37,6 +39,20 @@ export class SubAgent {
   withTool(name: string, t: Tool): this {
     this._tools.set(name, t);
     return this;
+  }
+
+  /**
+   * Include the default workspace toolset (`read_file`, `list_dir`, `glob_search`, `grep`, optional `run_command` when `PICOAGENT_ALLOW_SHELL=1`), merged before your custom tools.
+   * Built-in **generalist** always has these; custom agents opt in here.
+   */
+  withDefaultTools(): this {
+    this._includeDefaultWorkspaceTools = true;
+    return this;
+  }
+
+  /** True when `.withDefaultTools()` was used — same workspace bundle as `generalist`. */
+  get includeDefaultWorkspaceTools(): boolean {
+    return this._includeDefaultWorkspaceTools;
   }
 
   get systemPrompt(): string {
