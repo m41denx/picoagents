@@ -4,7 +4,12 @@ import { loadSkills } from "./registry/load-skills.ts";
 import { loadCustomAgents, mergeRegistry } from "./registry/load-agents.ts";
 import { createGeneralistAgent } from "./agents/builtin-generalist.ts";
 import { GoldenStore } from "./context/golden.ts";
-import { createOneshotPlan, runPlanner, type Plan } from "./agents/planner.ts";
+import {
+  buildPlannerBriefing,
+  createOneshotPlan,
+  runPlanner,
+  type Plan,
+} from "./agents/planner.ts";
 import { runOrchestrator, type OrchestratorCallbacks } from "./agents/orchestrator.ts";
 
 export type PicoagentSessionCallbacks = OrchestratorCallbacks & {
@@ -54,7 +59,14 @@ export async function runPicoagentSession(
   } else {
     const plannerModel = getLanguageModel(getModelId("planner"));
     opts.callbacks?.onSessionLog?.("Generating plan…");
-    plan = await runPlanner(plannerModel, opts.goal);
+    const plannerBriefing = buildPlannerBriefing(
+      agentRegistry,
+      skillRegistry,
+      workspaceRoot,
+    );
+    plan = await runPlanner(plannerModel, opts.goal, {
+      briefing: plannerBriefing,
+    });
   }
 
   let approved = Boolean(opts.autoApprovePlan) || Boolean(opts.skipPlanner);

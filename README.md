@@ -11,10 +11,10 @@ Use it with a local **OpenAI-compatible** server (e.g. **LM Studio** on `http://
 
 ## Install & run
 
-**From npm** ([package name `picoagents](https://www.npmjs.com/package/picoagents)`; the name `picoagent` was unavailable):
+**From npm** [picoagents](https://www.npmjs.com/package/picoagents):
 
 ```bash
-npm install -g picoagents
+bun install -g picoagents
 picoagents --goal "Your high-level task here"
 ```
 
