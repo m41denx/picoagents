@@ -1,6 +1,6 @@
 {
   "name": "picoagents",
-  "version": "0.3.0",
+  "version": "0.3.5",
   "description": "Bun + AI SDK CLI: planner → approved plan → orchestrator with parallel subagents, skills (.mdc), and OpenAI-compatible backends.",
   "license": "AGPL-3.0",
   "author": "M41den (https://github.com/m41denx)",

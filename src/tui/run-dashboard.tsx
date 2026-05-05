@@ -41,6 +41,19 @@ function oneLine(s: string, max = 64): string {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
+function whimsicalOrchestratorState(tick: number): string {
+  const states = [
+    "Pondering…",
+    "Contemplating…",
+    "Refining…",
+    "Plotting…",
+    "Scheming…",
+    "Preparing…",
+    "Lamenting…",
+  ] as const;
+  return states[tick % states.length]!;
+}
+
 export function formatDurationSec(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "0.0s";
   return `${(ms / 1000).toFixed(1)}s`;
@@ -178,7 +191,7 @@ export function RunDashboard({
             {orchestrator.finished ? (
               <Text color="green">all agents complete</Text>
             ) : orchestrator.multiStep ? (
-              <Text color="yellow">agents disagree, retrying…</Text>
+              <Text color="yellow">{whimsicalOrchestratorState(tick)}</Text>
             ) : orchestrator.running ? (
               <Text color="cyan">working…</Text>
             ) : (
@@ -223,7 +236,10 @@ export function RunDashboard({
             <Text bold>Orchestrator </Text>
             <Text dimColor>{"─".repeat(20)}</Text>
             {orchestrator.multiStep && orchestrator.running ? (
-              <Text color="yellow"> retrying…</Text>
+              <Text color="yellow">
+                {" "}
+                {whimsicalOrchestratorState(tick)}
+              </Text>
             ) : orchestrator.finished ? (
               <Text color="green"> complete</Text>
             ) : null}
