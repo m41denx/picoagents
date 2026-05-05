@@ -44,11 +44,11 @@ function parseArgs(argv: string[]) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log(`picoagent — Bun + AI SDK subagent harness
+    console.log(`picoagents — Bun + AI SDK subagent harness
 
 Usage:
-  picoagent [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless]
-  picoagent --smoke
+  picoagents [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless]
+  picoagents --smoke
 
 Flags:
   --oneshot   Skip planner; single-task plan and go straight to orchestrator

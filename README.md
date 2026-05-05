@@ -1,4 +1,4 @@
-# picoagent
+# picoagents
 
 A **Bun** + **Vercel AI SDK** harness for a **planner → plan approval → orchestrator** loop. The orchestrator spawns **named subagents** in parallel (configurable concurrency), merges results, and tracks work against a small **session store** under `.picoagent/`.
 
@@ -6,12 +6,26 @@ Use it with a local **OpenAI-compatible** server (e.g. **LM Studio** on `http://
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.x
+- [Bun](https://bun.sh) 1.x (required to run the CLI and install dependencies)
 - A running chat model exposed at `OPENAI_BASE_URL` (see below)
 
 ## Install & run
 
-From this repository:
+**From npm** ([package name `picoagents](https://www.npmjs.com/package/picoagents)`; the name `picoagent` was unavailable):
+
+```bash
+npm install -g picoagents
+picoagents --goal "Your high-level task here"
+```
+
+Or with Bun:
+
+```bash
+bun add -g picoagents
+picoagents --goal "…"
+```
+
+**From a clone of this repository:**
 
 ```bash
 bun install
@@ -27,10 +41,10 @@ bun run src/cli.ts --goal "Your high-level task here"
 bun run src/cli.ts "Summarize the repo and list next steps"
 ```
 
-With `package.json` `bin` linked globally or via `bun link`, the command is:
+After a global install, the command is `picoagents`:
 
 ```bash
-picoagent --goal "…"
+picoagents --goal "…"
 ```
 
 ### Headless (CI / scripts)
@@ -60,17 +74,17 @@ bun run src/cli.ts --headless --oneshot --goal "…"     # skip planner, single-
 ## Environment variables
 
 
-| Variable                         | Purpose                                                                                                                                                    |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OPENAI_BASE_URL`                | OpenAI-compatible API base URL. Default: `http://127.0.0.1:1234/v1` (LM Studio style).                                                                     |
-| `OPENAI_API_KEY`                 | Sent as the Bearer token; local servers often accept any placeholder (default `lm-studio`).                                                                |
-| `PICOAGENT_MODEL`                | Default chat model id for **all** roles unless overridden below.                                                                                           |
-| `PICOAGENT_MODEL_PLANNER`        | Planner model id override.                                                                                                                                 |
-| `PICOAGENT_MODEL_ORCHESTRATOR`   | Orchestrator model id override.                                                                                                                            |
-| `PICOAGENT_MODEL_SUBAGENT`       | Subagent model id override.                                                                                                                                |
-| `PICOAGENT_MAX_PARALLEL`         | Max concurrent subagent runs in one batch (default **3**).                                                                                                 |
+| Variable                         | Purpose                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `OPENAI_BASE_URL`                | OpenAI-compatible API base URL. Default: `http://127.0.0.1:1234/v1` (LM Studio style).                                                                 |
+| `OPENAI_API_KEY`                 | Sent as the Bearer token; local servers often accept any placeholder (default `lm-studio`).                                                            |
+| `PICOAGENT_MODEL`                | Default chat model id for **all** roles unless overridden below.                                                                                       |
+| `PICOAGENT_MODEL_PLANNER`        | Planner model id override.                                                                                                                             |
+| `PICOAGENT_MODEL_ORCHESTRATOR`   | Orchestrator model id override.                                                                                                                        |
+| `PICOAGENT_MODEL_SUBAGENT`       | Subagent model id override.                                                                                                                            |
+| `PICOAGENT_MAX_PARALLEL`         | Max concurrent subagent runs in one batch (default **3**).                                                                                             |
 | `PICOAGENT_ALLOW_SHELL`          | Set to `1` to expose `run_command` for the built-in **generalist** (runs under `--workspace`). **High risk** — only when you trust the model and task. |
-| `PICOAGENT_SKILL_BODY_MAX_CHARS` | Upper bound on skill body returned by `readSkill` (default large).                                                                                         |
+| `PICOAGENT_SKILL_BODY_MAX_CHARS` | Upper bound on skill body returned by `readSkill` (default large).                                                                                     |
 
 
 Example for LM Studio:
@@ -105,12 +119,12 @@ At `--project-root` (default: current directory):
 
 ## Custom subagents
 
-1. Add files under `.picoagent/agents/` (`.ts` / `.tsx`). The loader walks this tree; **each file** must export a `SubAgent` as **`export default`** or **`export const subagent`**.
+1. Add files under `.picoagent/agents/` (`.ts` / `.tsx`). The loader walks this tree; **each file** must export a `SubAgent` as `**export default`** or `**export const subagent**`.
 2. The **filename stem** (e.g. `google-enthusiast.ts` → `google-enthusiast`) becomes the default **agent id** unless you set `meta.id` on `SubAgent`.
-3. Do not use the id **`generalist`** (reserved). Build with the `SubAgent` class and `tool` from the package entry point. Example (aligned with the architecture plan: a search-focused specialist):
+3. Do not use the id `**generalist`** (reserved). Build with the `SubAgent` class and `tool` from the package entry point. Example (aligned with the architecture plan: a search-focused specialist):
 
 ```ts
-import { SubAgent, tool } from "picoagent"; // or a relative path to `src/subagent.ts` in this repo
+import { SubAgent, tool } from "picoagents"; // or a relative path to `src/subagent.ts` in this repo
 import { z } from "zod";
 
 const searchTool = tool({
@@ -144,8 +158,8 @@ const googleAgent = new SubAgent({
 export default googleAgent;
 ```
 
-4. **Dependencies** (e.g. `axios`): install them in **this** project’s `package.json` and import from your agent file. Put **shared helpers** in e.g. `.picoagent/lib/` and import from the agent file—**do not** put non-agent `.ts` files under `agents/` or the loader will try to register them as agents.
-5. **Workspace tools** (`read_file`, `grep`, optional shell, …) are attached only to the built-in **`generalist`**. Custom agents get **their** tools plus **`readSkill`**.
+1. **Dependencies** (e.g. `axios`): install them in **this** project’s `package.json` and import from your agent file. Put **shared helpers** in e.g. `.picoagent/lib/` and import from the agent file—**do not** put non-agent `.ts` files under `agents/` or the loader will try to register them as agents.
+2. **Workspace tools** (`read_file`, `grep`, optional shell, …) are attached only to the built-in `**generalist`**. Custom agents get **their** tools plus `**readSkill`**.
 
 ## Skills (`.mdc`)
 
@@ -171,17 +185,17 @@ When implementing or reviewing route handlers:
 Subagents should call `readSkill` with the skill name when this guidance applies.
 ```
 
-- **`description`** (required): Short text for the “available skills” list.
-- **`alwaysApply`** (required boolean): If `true`, every subagent sees this skill in its menu; if `false`, only agents that **reference** it via `.withSkill("server-patterns.mdc")` see it.
+- `**description**` (required): Short text for the “available skills” list.
+- `**alwaysApply**` (required boolean): If `true`, every subagent sees this skill in its menu; if `false`, only agents that **reference** it via `.withSkill("server-patterns.mdc")` see it.
 
-Bodies can be long; subagents load full text **on demand** via the built-in **`readSkill`** tool (not injected wholesale into every prompt).
+Bodies can be long; subagents load full text **on demand** via the built-in `**readSkill`** tool (not injected wholesale into every prompt).
 
 ## Flow summary
 
 1. **Planner** turns your goal into a structured plan (phases + tasks), unless `--oneshot`.
 2. **Interactive TUI**: you approve or reject the plan (`y` / `n` / `q`).
-3. **Orchestrator** runs with tools to manage tasks and **`spawn_subagents`** (parallelism capped by `PICOAGENT_MAX_PARALLEL`).
-4. **Subagents** run with their tools + skill menu + **`readSkill`**.
+3. **Orchestrator** runs with tools to manage tasks and `**spawn_subagents`** (parallelism capped by `PICOAGENT_MAX_PARALLEL`).
+4. **Subagents** run with their tools + skill menu + `**readSkill`**.
 
 ## Troubleshooting
 
@@ -190,8 +204,13 @@ Bodies can be long; subagents load full text **on demand** via the built-in **`r
 
 ## Library usage
 
-The package exports **`SubAgent`** and **`tool`** from `picoagent` (see `package.json` `"exports"`). For programmatic use you can import `runPicoagentSession` from `./core/session.ts` in this repo or embed the core in your own binary.
+The package exports `**SubAgent`** and `**tool**` from `picoagents` (see `package.json` `"exports"`). For programmatic use you can import `runPicoagentSession` from `./core/session.ts` in this repo or embed the core in your own binary.
+
+## Author & source
+
+- **Author:** [M41den](https://github.com/m41denx)
+- **Repository:** [github.com/m41denx/picoagents](https://github.com/m41denx/picoagents)
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). See the [`LICENSE`](LICENSE) file in the repository for the full text.
+This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). See the `[LICENSE](LICENSE)` file in the repository for the full text.

@@ -1,10 +1,40 @@
 {
-  "name": "picoagent",
+  "name": "picoagents",
   "version": "0.1.0",
+  "description": "Bun + AI SDK CLI: planner → approved plan → orchestrator with parallel subagents, skills (.mdc), and OpenAI-compatible backends.",
+  "license": "AGPL-3.0",
+  "author": "M41den (https://github.com/m41denx)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m41denx/picoagents.git"
+  },
+  "homepage": "https://github.com/m41denx/picoagents#readme",
+  "bugs": {
+    "url": "https://github.com/m41denx/picoagents/issues"
+  },
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "bun",
+    "cli",
+    "lm-studio",
+    "openai",
+    "orchestrator",
+    "planner",
+    "subagents",
+    "agents"
+  ],
   "type": "module",
-  "private": true,
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
-    "picoagent": "./src/cli.ts"
+    "picoagents": "./src/cli.ts"
   },
   "exports": {
     ".": "./src/subagent.ts",
@@ -14,13 +44,13 @@
     "dev": "bun run src/cli.ts",
     "start": "bun run src/cli.ts",
     "smoke": "bun run src/smoke.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.60",
     "ai": "^6.0.175",
     "ink": "^7.0.1",
-    "picoagent": "file:.",
     "react": "^19.2.5",
     "yaml": "^2.8.4",
     "zod": "^4.4.3"
