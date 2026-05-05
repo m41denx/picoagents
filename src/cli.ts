@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { runPicoagentSession } from "@/core/session.ts";
+import { resolveVerbose } from "@/core/observability.ts";
 import { resolve } from "node:path";
 
 function parseArgs(argv: string[]) {
@@ -10,6 +11,7 @@ function parseArgs(argv: string[]) {
     yes: boolean;
     oneshot: boolean;
     headless: boolean;
+    verbose: boolean;
     smoke: boolean;
     help: boolean;
   } = {
@@ -17,6 +19,7 @@ function parseArgs(argv: string[]) {
     yes: false,
     oneshot: false,
     headless: false,
+    verbose: false,
     smoke: false,
     help: false,
   };
@@ -27,6 +30,7 @@ function parseArgs(argv: string[]) {
     else if (a === "--yes" || a === "-y") out.yes = true;
     else if (a === "--oneshot") out.oneshot = true;
     else if (a === "--headless") out.headless = true;
+    else if (a === "--verbose" || a === "-v") out.verbose = true;
     else if (a === "--smoke") out.smoke = true;
     else if (a === "--project-root" && argv[i + 1]) {
       out.projectRoot = resolve(argv[++i]!);
@@ -47,11 +51,12 @@ async function main() {
     console.log(`picoagents — Bun + AI SDK subagent harness
 
 Usage:
-  picoagents [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless]
+  picoagents [--project-root <dir>] [--workspace <dir>] [--goal <text>] [--yes] [--oneshot] [--headless] [--verbose]
   picoagents --smoke
 
 Flags:
   --oneshot   Skip planner; single-task plan and go straight to orchestrator
+  --verbose   Full step traces on stderr ([picoagents:…]); TUI shows untrimmed output
 
 Environment:
   OPENAI_BASE_URL             OpenAI-compatible API base (default LM Studio)
@@ -63,6 +68,7 @@ Environment:
   PICOAGENT_MAX_PARALLEL      Subagent concurrency (default 3)
   PICOAGENT_ALLOW_SHELL=1     Enable run_command for the built-in generalist
   PICOAGENT_SKILL_BODY_MAX_CHARS  Max skill body size from readSkill
+  PICOAGENT_VERBOSE=1           Same as --verbose (step traces on stderr)
 `);
     process.exit(0);
   }
@@ -77,6 +83,8 @@ Environment:
     console.error("Missing --goal <text> or positional goal.");
     process.exit(1);
   }
+
+  const verbose = resolveVerbose(args.verbose);
 
   const tty = process.stdout.isTTY && process.stdin.isTTY;
   const useInk = tty && !args.headless;
@@ -95,6 +103,7 @@ Environment:
     const { runTuiSession } = await import("./tui/session-app.tsx");
     const summary = await runTuiSession(goal, projectRoot, workspaceRoot, {
       oneshot: args.oneshot,
+      verbose,
     });
     if (summary === null) return;
     console.log("\n--- Final summary ---\n");
@@ -108,14 +117,19 @@ Environment:
     goal,
     skipPlanner: args.oneshot,
     autoApprovePlan: args.yes || args.oneshot,
+    verbose,
     callbacks: {
       onSessionLog: (l) => console.error(`[session] ${l}`),
       onOrchestratorLog: (l) => console.error(`[orch] ${l}`),
       onOrchestratorStart: () => console.error("[orch] starting…"),
       onSubagentStarted: (id, key, task) =>
-        console.error(`[sub ${id}] ${key}: ${task.slice(0, 80)}…`),
+        console.error(
+          `[sub ${id}] ${key}: ${verbose ? task : `${task.slice(0, 80)}…`}`,
+        ),
       onSubagentFinished: (id, key, ok, text) =>
-        console.error(`[sub ${id}] ${key} ${ok ? "ok" : "fail"}: ${text.slice(0, 120)}…`),
+        console.error(
+          `[sub ${id}] ${key} ${ok ? "ok" : "fail"}: ${verbose ? text : `${text.slice(0, 120)}…`}`,
+        ),
     },
   });
 

@@ -61,6 +61,7 @@ export function SessionApp({
   projectRoot,
   workspaceRoot,
   oneshot,
+  verbose = false,
   onFinished,
   onAborted,
   onError,
@@ -69,6 +70,8 @@ export function SessionApp({
   projectRoot: string;
   workspaceRoot: string;
   oneshot: boolean;
+  /** Full UI + stderr step traces (also set `PICOAGENT_VERBOSE=1`). */
+  verbose?: boolean;
   onFinished: (summary: string) => void;
   /** Plan declined — exit without treating as an error */
   onAborted?: () => void;
@@ -98,6 +101,7 @@ export function SessionApp({
   const [orchestratorEndMs, setOrchestratorEndMs] = useState<number | null>(
     null,
   );
+  const [orchestratorActivity, setOrchestratorActivity] = useState("");
   const approveRef = useRef<((ok: boolean) => void) | null>(null);
   const displayCounter = useRef(0);
   const agentByRun = useRef(new Map<string, number>());
@@ -125,6 +129,7 @@ export function SessionApp({
           workspaceRoot,
           goal,
           skipPlanner: oneshot,
+          verbose,
           callbacks: {
             onSessionLog: () => {},
             onPlanReady: async (p) => {
@@ -148,7 +153,30 @@ export function SessionApp({
                 setOrch((o) => ({ ...o, multiStep: true }));
               }
             },
+            onOrchestratorStepTrace: (t) => {
+              const names = t.toolCalls.map((c) => c.toolName);
+              setOrchestratorActivity(
+                names.length > 0
+                  ? `Step ${t.stepNumber} · ${names.join(", ")}`
+                  : t.text
+                    ? `Step ${t.stepNumber} · ${t.text.replace(/\s+/g, " ").trim().slice(0, 120)}`
+                    : `Step ${t.stepNumber} · ${t.finishReason}`,
+              );
+            },
             onOrchestratorLog: () => {},
+            onSubagentStepTrace: (runId, _agentKey, t) => {
+              const names = t.toolCalls.map((c) => c.toolName);
+              const line = names.length
+                ? `tools: ${names.join(", ")}`
+                : t.text.replace(/\s+/g, " ").trim().slice(0, 200);
+              setAgents((prev) =>
+                prev.map((a) =>
+                  a.runId === runId && a.status === "running"
+                    ? { ...a, latest: line || "…" }
+                    : a,
+                ),
+              );
+            },
             onSubagentStarted: (runId, agentKey, task) => {
               setPhase("run");
               let idx = agentByRun.current.get(runId);
@@ -191,6 +219,7 @@ export function SessionApp({
                     status: ok ? "done" : "error",
                     resultLine: line || (ok ? "(no text)" : "(failed)"),
                     latest: ok ? "Done" : "Error",
+                    fullOutput: verbose ? text : undefined,
                     durationMs,
                   };
                 }),
@@ -224,7 +253,7 @@ export function SessionApp({
     return () => {
       cancelled = true;
     };
-  }, [goal, projectRoot, workspaceRoot, oneshot, exit]);
+  }, [goal, projectRoot, workspaceRoot, oneshot, verbose, exit]);
 
   const planReviewDuration =
     planningStartMs != null && planningEndMs != null
@@ -282,8 +311,10 @@ export function SessionApp({
           endMs: orchestratorEndMs,
         }}
         orchestrator={orch}
+        orchestratorActivity={orchestratorActivity || undefined}
         agents={agents}
         finalSummary={orch.finished ? summary : undefined}
+        verbose={verbose}
       />
     </Box>
   );
@@ -293,7 +324,7 @@ export async function runTuiSession(
   goal: string,
   projectRoot: string,
   workspaceRoot: string,
-  opts?: { oneshot?: boolean },
+  opts?: { oneshot?: boolean; verbose?: boolean },
 ): Promise<string | null> {
   const { render } = await import("ink");
   return await new Promise<string | null>((resolve, reject) => {
@@ -303,6 +334,7 @@ export async function runTuiSession(
         projectRoot={projectRoot}
         workspaceRoot={workspaceRoot}
         oneshot={opts?.oneshot ?? false}
+        verbose={opts?.verbose ?? false}
         onFinished={(s) => resolve(s)}
         onAborted={() => resolve(null)}
         onError={(e) => reject(e)}
