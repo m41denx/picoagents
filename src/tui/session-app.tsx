@@ -138,6 +138,7 @@ export function SessionApp({
                   status: "running",
                   task,
                   latest: taskLine || "Starting…",
+                  startedAtMs: Date.now(),
                 };
                 if (i >= 0) {
                   const next = [...prev];
@@ -150,17 +151,20 @@ export function SessionApp({
             onSubagentFinished: (runId, agentKey, ok, text) => {
               const line = text.replace(/\s+/g, " ").trim().slice(0, 200);
               setAgents((prev) =>
-                prev.map((a) =>
-                  a.runId === runId
-                    ? {
-                        ...a,
-                        agentKey,
-                        status: ok ? "done" : "error",
-                        resultLine: line || (ok ? "(no text)" : "(failed)"),
-                        latest: ok ? "Done" : "Error",
-                      }
-                    : a,
-                ),
+                prev.map((a) => {
+                  if (a.runId !== runId) return a;
+                  const end = Date.now();
+                  const durationMs =
+                    a.startedAtMs != null ? end - a.startedAtMs : undefined;
+                  return {
+                    ...a,
+                    agentKey,
+                    status: ok ? "done" : "error",
+                    resultLine: line || (ok ? "(no text)" : "(failed)"),
+                    latest: ok ? "Done" : "Error",
+                    durationMs,
+                  };
+                }),
               );
             },
           },

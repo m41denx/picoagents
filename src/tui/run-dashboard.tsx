@@ -13,6 +13,10 @@ export type AgentUiRow = {
   latest: string;
   /** Final one-liner when done/error */
   resultLine?: string;
+  /** Wall-clock start (ms) for this run */
+  startedAtMs?: number;
+  /** Set when the run ends — total wall time for this run */
+  durationMs?: number;
 };
 
 export type OrchestratorUiState = {
@@ -33,6 +37,22 @@ function typeColor(agentKey: string): "magenta" | "cyan" | "yellow" | "blue" {
 function oneLine(s: string, max = 64): string {
   const t = s.replace(/\s+/g, " ").trim();
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+function formatDurationSec(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "0.0s";
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Elapsed (running) or final duration (finished), for header `• 38.3s`. */
+function agentDurationLabel(a: AgentUiRow): string | null {
+  if (a.status === "running" && a.startedAtMs != null) {
+    return formatDurationSec(Date.now() - a.startedAtMs);
+  }
+  if (a.durationMs != null) {
+    return formatDurationSec(a.durationMs);
+  }
+  return null;
 }
 
 export function RunDashboard({
@@ -165,6 +185,7 @@ function BoxedAgents({
           a.perspective && a.status === "running"
             ? ` — ${oneLine(a.perspective, 28)}`
             : "";
+        const dur = agentDurationLabel(a);
         return (
           <Box
             key={a.runId}
@@ -178,6 +199,12 @@ function BoxedAgents({
               <Text color={headerColor}>{headerIcon} </Text>
               <Text bold> Agent {a.displayIndex} </Text>
               <Text color={tc}>({a.agentKey})</Text>
+              {dur ? (
+                <>
+                  <Text dimColor> • </Text>
+                  <Text dimColor>{dur}</Text>
+                </>
+              ) : null}
               {a.status === "running" && a.perspective ? (
                 <Text dimColor>{sub}</Text>
               ) : null}
@@ -235,11 +262,18 @@ function DenseTable({
           a.agentKey.length > 12 ? `${a.agentKey.slice(0, 11)}…` : a.agentKey;
         const typePadded = typeCell.padEnd(12, " ");
         const statusPadded = st.padEnd(9, " ");
+        const dur = agentDurationLabel(a);
         return (
           <Box key={a.runId} flexDirection="row" columnGap={1}>
             <Text>
               <Text color={stColor}>{icon} </Text>
               <Text bold>Agent {a.displayIndex}</Text>
+              {dur ? (
+                <>
+                  <Text dimColor> • </Text>
+                  <Text dimColor>{dur}</Text>
+                </>
+              ) : null}
             </Text>
             <Text color={tc}>{typePadded}</Text>
             <Text color={stColor}>{statusPadded}</Text>
