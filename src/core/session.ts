@@ -67,27 +67,14 @@ async function writeSessionArtifact(
   await Bun.write(join(sessionDir, name), JSON.stringify(payload, null, 2));
 }
 
-async function detectPicoagentsPackagePath(): Promise<string | null> {
-  try {
-    const candidateRoot = join(import.meta.dir, "../..");
-    const pkg = Bun.file(join(candidateRoot, "package.json"));
-    if (!await pkg.exists()) return null;
-    const data = JSON.parse(await pkg.text()) as { name?: string };
-    return data.name === "picoagents" ? candidateRoot : null;
-  } catch {
-    return null;
-  }
-}
-
 async function ensurePicoagentBootstrap(
   projectRoot: string,
-  onLog?: (line: string) => void,
 ): Promise<void> {
   const dir = join(projectRoot, ".picoagent");
   await mkdir(dir, { recursive: true });
 
   const gitignorePath = join(dir, ".gitignore");
-  const requiredIgnore = ["sessions", "node_modules", "bun.lock"];
+  const requiredIgnore = ["sessions"];
   let gitignoreContent = "";
   const gitignoreFile = Bun.file(gitignorePath);
   if (await gitignoreFile.exists()) {
@@ -107,24 +94,6 @@ async function ensurePicoagentBootstrap(
       "\n";
     await Bun.write(gitignorePath, next);
   }
-
-  const pkgPath = join(dir, "package.json");
-  if (!await Bun.file(pkgPath).exists()) {
-    const picoagentsRoot = await detectPicoagentsPackagePath();
-    const pkg = {
-      name: "picoagent-local-agents",
-      private: true,
-      type: "module",
-      dependencies: {
-        picoagents: picoagentsRoot ? `file:${picoagentsRoot}` : "latest",
-      },
-    };
-    await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-  }
-
-  onLog?.("Bootstrapping .picoagent deps (bun install) …");
-  const proc = Bun.spawn(["bun", "install"], { cwd: dir, stdout: "pipe", stderr: "pipe" });
-  await proc.exited;
 }
 
 function mergeSessionCallbacks(
@@ -173,7 +142,7 @@ export async function runPicoagentSession(
   const sessionId = crypto.randomUUID();
   const sessionDir = join(projectRoot, ".picoagent", "sessions", sessionId);
   opts.callbacks?.onSessionLog?.(`Session: ${sessionId}`);
-  await ensurePicoagentBootstrap(projectRoot, opts.callbacks?.onSessionLog);
+  await ensurePicoagentBootstrap(projectRoot);
 
   const skillRegistry = await loadSkills(projectRoot);
   const customAgents = await loadCustomAgents(projectRoot);

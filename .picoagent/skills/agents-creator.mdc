@@ -26,10 +26,10 @@ Create production-usable `SubAgent` definitions that the loader can discover and
 
 - Import from package root:
   - `import { SubAgent, tool } from "picoagents";`
-- Treat `.picoagent/package.json` as the dependency source for agent code:
-  - Add agent-specific dependencies there (not necessarily in project root).
-  - Do not overwrite existing `.picoagent/package.json` fields unrelated to the requested change.
-  - If dependency is missing, add it and run install in `.picoagent`.
+- Treat the project root `package.json` as the dependency source for agent code:
+  - Add missing agent dependencies at the project root.
+  - Do not overwrite unrelated fields.
+  - If dependency is missing, add it and install in the project root.
 - Use `.withSystemPrompt(...)` for role behavior.
 - Add tools via `.withTool(name, toolDef)` only when needed.
 - Use `.withDefaultTools()` if the agent should access workspace read/search tools.
@@ -45,7 +45,7 @@ Create production-usable `SubAgent` definitions that the loader can discover and
 - Tool schemas are explicit and narrow.
 - System prompt aligns with user intent and avoids role confusion.
 - Exports are valid for loader discovery.
-- Required imports resolve from `.picoagent/node_modules` after install.
+- Required imports resolve from the project root `node_modules` after install.
 
 ## Example
 

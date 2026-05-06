@@ -118,21 +118,16 @@ At `--project-root` (default: current directory):
 | `.picoagent/AGENT.md`              | Optional durable notes (append-only if used by orchestrator tools). |
 | `.picoagent/agents/*.ts`           | **Custom subagents** (see below). |
 | `.picoagent/skills/*.mdc`          | **Skills** (see below).                                              |
-| `.picoagent/package.json`          | Local workspace deps for agent/skill code (auto-created if missing). |
-| `.picoagent/node_modules/`         | Local deps installed by bootstrap (`bun install` in `.picoagent`).   |
-| `.picoagent/.gitignore`            | Auto-managed ignore entries for `sessions` and `node_modules`.       |
+| `.picoagent/.gitignore`            | Auto-managed ignore entry for `sessions`.                             |
 
 ### `.picoagent` workspace bootstrap
 
-On each session boot, picoagents initializes `.picoagent` as a lightweight local workspace:
+On each session boot, picoagents ensures `.picoagent` exists for runtime artifacts:
 
 1. Ensures `.picoagent/.gitignore` contains:
    - `sessions`
-   - `node_modules`
-2. Creates `.picoagent/package.json` **only if missing** (never overwrites user-managed dependencies).
-3. Runs `bun install` with cwd=`.picoagent`.
 
-This lets agent files import workspace-local dependencies without polluting the project root dependency tree.
+Dependencies for custom agents should be installed in the project root `package.json`.
 
 
 ## Custom subagents
