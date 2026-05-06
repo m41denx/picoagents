@@ -54,12 +54,12 @@ After approval, an **orchestrator** LLM runs with tools: it tracks tasks, update
 
 **Workspace files** for the built-in **generalist** (and for custom agents that call \`.withDefaultTools()\`) are rooted at:
 \`${workspaceRoot}\`
-(Custom agents otherwise only get their own \`.withTool()\` definitions plus **readSkill**, unless they opt into defaults.)
+(Custom agents otherwise only get their own \`.withTool()\` definitions plus **read_skill**, unless they opt into defaults.)
 
 ### Built-in capabilities you should assume exist
 - **Orchestrator**: task graph, merging subagent outputs, recording progress (you do not plan orchestrator tool names — describe *work* and *which agent kinds* fit).
-- **Every subagent profile**: merged with a universal **readSkill(skillName)** tool so instruction files (skills) can be loaded on demand.
-- **generalist** subagent: standard workspace tools at run time — **read_file**, **list_dir**, **glob_search**, **grep**, plus **readSkill**. If \`PICOAGENT_ALLOW_SHELL=1\`, **run_command** may exist (shell in workspace root); do not assume shell unless the user clearly needs it.`);
+- **Every subagent profile**: merged with a universal **read_skill(skillName)** tool so instruction files (skills) can be loaded on demand.
+- **generalist** subagent: standard workspace tools at run time — **read_file**, **list_dir**, **glob_search**, **grep**, plus **read_skill**. If \`PICOAGENT_ALLOW_SHELL=1\`, **run_command** may exist (shell in workspace root); do not assume shell unless the user clearly needs it.`);
 
   const agentIds = [...agentRegistry.byId.keys()].sort((a, b) => a.localeCompare(b));
   const agentBlocks: string[] = [];
@@ -74,7 +74,7 @@ After approval, an **orchestrator** LLM runs with tools: it tracks tasks, update
   const skillIds = [...skillRegistry.byName.keys()].sort((a, b) => a.localeCompare(b));
   if (skillIds.length === 0) {
     sections.push(
-      `### Skills library (.picoagent/skills/*.mdc)\n*(No skill files loaded — empty directory or missing folder.)*\n\nSkills are reusable markdown instructions. Each subagent sees a **menu** of skills (alwaysApply + per-agent \`.withSkill()\` refs). Bodies are fetched via **readSkill** when needed.`,
+      `### Skills library (.picoagent/skills/*.mdc)\n*(No skill files loaded — empty directory or missing folder.)*\n\nSkills are reusable markdown instructions. Each subagent sees a **menu** of skills (alwaysApply + per-agent \`.withSkill()\` refs). Bodies are fetched via **read_skill** when needed.`,
     );
   } else {
     const skillLines = skillIds.map((name) => {
@@ -85,7 +85,7 @@ After approval, an **orchestrator** LLM runs with tools: it tracks tasks, update
       return `- **${name}** — ${rec.description} (*${scope}*)`;
     });
     sections.push(
-      `### Skills library (.picoagent/skills/*.mdc)\nReusable instruction bodies (YAML frontmatter + markdown). Subagents see descriptions in their menu and load full text with **readSkill**.\n\n${skillLines.join("\n")}`,
+      `### Skills library (.picoagent/skills/*.mdc)\nReusable instruction bodies (YAML frontmatter + markdown). Subagents see descriptions in their menu and load full text with **read_skill**.\n\n${skillLines.join("\n")}`,
     );
   }
 
@@ -107,14 +107,14 @@ function formatAgentEntry(id: string, agent: SubAgent): string {
       : "";
 
   if (id === "generalist") {
-    return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - At run time tools include: read_file, list_dir, glob_search, grep, readSkill; optional run_command if shell env enabled.${skillNote}`;
+    return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - At run time tools include: read_file, list_dir, glob_search, grep, read_skill; optional run_command if shell env enabled.${skillNote}`;
   }
 
   const toolKeys = Object.keys(agent.tools);
   const toolsLine =
     toolKeys.length > 0
-      ? toolKeys.join(", ") + ", readSkill"
-      : "readSkill (define tools in .picoagent/agents to add capabilities)";
+      ? toolKeys.join(", ") + ", read_skill"
+      : "read_skill (define tools in .picoagent/agents to add capabilities)";
 
   const defaultsNote = agent.includeDefaultWorkspaceTools
     ? "\n  - **Plus** default workspace tools (read_file, list_dir, glob_search, grep; optional run_command if shell env enabled), merged with custom tools above."
@@ -131,7 +131,7 @@ function formatAgentEntry(id: string, agent: SubAgent): string {
   return `- **${id}** — ${meta.name}\n  - ${meta.description}\n  - Custom tools: ${toolsLine}.${skillNote}${defaultsNote}${devNote}${researchNote}`;
 }
 
-const PLANNER_SYSTEM = `You are the planning phase of **picoagents**, a harness where an orchestrator later spawns **registered subagents** (by agent key) and uses **skills** (.mdc files) via readSkill.
+const PLANNER_SYSTEM = `You are the planning phase of **picoagents**, a harness where an orchestrator later spawns **registered subagents** (by agent key) and uses **skills** (.mdc files) via read_skill.
 
 You receive a detailed **harness context** before the user goal: registered agents, skills, and how execution works. Use it — plans that ignore available agents/skills are wasteful.
 

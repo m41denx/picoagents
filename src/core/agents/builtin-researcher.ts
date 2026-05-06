@@ -5,7 +5,7 @@ export function createResearcherAgent(): SubAgent {
     id: "researcher",
     name: "Researcher",
     description:
-      "Searches via SerpAPI DuckDuckGo JSON (organic_results + search_assist) and fetches web pages as text.",
+      "Can search the web via DuckDuckGo and fetch web pages as text. Use it when you need to find information on the web.",
   })
     .withSystemPrompt(
       `You are a research subagent.

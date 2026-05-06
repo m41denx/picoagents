@@ -35,7 +35,6 @@ export async function runSubagent({
 }: RunSubagentParams): Promise<string> {
   const menu = skillRegistry.menuBlock(agent);
   const allowed = skillRegistry.visibleSkillNames(agent);
-  const readSkill = createReadSkillTool(skillRegistry, allowed);
 
   const useWorkspace =
     agent.meta.id === "generalist" || agent.includeDefaultWorkspaceTools;
@@ -43,12 +42,12 @@ export async function runSubagent({
 
   const mergedTools: Record<string, unknown> = {
     ...ws,
+    read_skill: createReadSkillTool(skillRegistry, allowed),
     ...(agent.includeDeveloperWriteTools
       ? createDeveloperWorkspaceTools(workspaceRoot)
       : {}),
     ...(agent.includeResearcherTools ? createResearcherTools() : {}),
     ...(agent.tools as Record<string, unknown>),
-    readSkill,
   };
 
   const sysParts = [
@@ -66,7 +65,7 @@ export async function runSubagent({
     menu,
     "",
     "Use the read_skill tool when you need full instructions from a skill.",
-    "Default behavior: prefer one relevant readSkill lookup over guessing hidden conventions.",
+    "Default behavior: prefer one relevant read_skill lookup over guessing hidden conventions.",
   ];
 
   const userParts = [

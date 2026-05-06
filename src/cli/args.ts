@@ -76,7 +76,7 @@ Environment:
   PICOAGENT_MODEL_SUBAGENT
   PICOAGENT_MAX_PARALLEL      Subagent concurrency (default 3)
   PICOAGENT_ALLOW_SHELL=1     Enable run_command for the built-in generalist
-  PICOAGENT_SKILL_BODY_MAX_CHARS  Max skill body size from readSkill
+  PICOAGENT_SKILL_BODY_MAX_CHARS  Max skill body size from read_skill
   PICOAGENT_VERBOSE=1           Same as --verbose (step traces on stderr)
 `);
 }

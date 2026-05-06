@@ -282,6 +282,8 @@ Golden context (short):\n${opts.golden.excerptForPrompt()}
 
 Rules:
 - Prefer spawn_subagents for independent research or perspectives; it runs agents concurrently (batched by PICOAGENT_MAX_PARALLEL) and waits for all results.
+- Think carefully about the tasks you are delegating to the subagents and how agents depend on each other. (Example: without API research you cannot make developer agent write code for API it doesn't know about)
+- If agent relies on another agent result, don't run them in parallel.
 - Track tasks with upsert_task / list_tasks.
 - Persist important conclusions with append_agent_md_section or record_decision.
 - When delegating to spawn_subagents, each runs[].task must be a self-contained mini-brief with:

@@ -4,8 +4,7 @@ export function createDeveloperAgent(): SubAgent {
   return new SubAgent({
     id: "developer",
     name: "Developer",
-    description:
-      "Creates and edits UTF-8 files under the workspace via write_file / ensure_dir (no shell).",
+    description: "Creates and edits files under the workspace via write_file / ensure_dir (no shell).",
   })
     .withSystemPrompt(
       `You are a developer subagent.
