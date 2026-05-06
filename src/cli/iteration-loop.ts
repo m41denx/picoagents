@@ -61,9 +61,9 @@ export async function runIterationLoop(opts: {
       const iterationGoal = opts.infinite
         ? buildIterationGoal(opts.goal, priorIterationSummaries)
         : opts.goal;
-      opts.onLog(
-        `Iteration ${iteration}${opts.infinite ? " (infinite mode)" : ""}`,
-      );
+      if (opts.infinite) {
+        opts.onLog(`Iteration ${iteration} (infinite mode)`);
+      }
       const summary = await opts.runIteration(iterationGoal, iteration);
       if (summary === null) break;
       if (!opts.infinite) break;
